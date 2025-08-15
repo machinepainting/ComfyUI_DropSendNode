@@ -8,8 +8,8 @@ DROPBOX_KEYRING_SERVICE = "comfyui_dropbox"
 
 class DropboxAuthManager:
     def __init__(self, app_key=None, app_secret=None):
-        self.app_key = app_key or keyring.get_password(DROPBOX_KEYRING_SERVICE, "app_key")
-        self.app_secret = app_secret or keyring.get_password(DROPBOX_KEYRING_SERVICE, "app_secret")
+        self.app_key = app_key if app_key is not None else keyring.get_password(DROPBOX_KEYRING_SERVICE, "app_key")
+        self.app_secret = app_secret if app_secret is not None else keyring.get_password(DROPBOX_KEYRING_SERVICE, "app_secret")
         self.refresh_token = keyring.get_password(DROPBOX_KEYRING_SERVICE, "refresh_token")
 
     def is_connected(self):
