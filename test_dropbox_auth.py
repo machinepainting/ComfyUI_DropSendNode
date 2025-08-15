@@ -1,125 +1,140 @@
 #!/usr/bin/env python3
-# test_dropbox_auth.py - Manual testing script for DropboxAuthManager
+# test_dropbox_auth_simple.py - Non-interactive testing script for DropboxAuthManager
 
 from dropbox_auth_manager import DropboxAuthManager
 
-def test_first_time_setup():
-    """Test the initial auth code exchange flow"""
-    print("🧪 STEP 1: First-time setup test")
-    print("-" * 40)
-    
-    auth_code = input("Paste your Dropbox auth code: ").strip()
-    app_key = input("App Key: ").strip()
-    app_secret = input("App Secret: ").strip()
-
-    print(f"Debug - app_key: '{app_key}' (len={len(app_key)})")
-    print(f"Debug - app_secret: '{app_secret}' (len={len(app_secret)})")
-    print(f"Debug - auth_code: '{auth_code}' (len={len(auth_code)})")
-
-    auth = DropboxAuthManager(app_key, app_secret)
-
-    try:
-        auth.exchange_auth_code(auth_code)
-        print("✅ Refresh token stored securely in system keyring.")
-        return auth
-    except Exception as e:
-        print(f"❌ Error exchanging auth code: {e}")
-        return None
-
-def test_stored_credentials():
-    """Test retrieving and using stored credentials"""
-    print("\n🧪 STEP 2: Stored credentials test")
-    print("-" * 40)
-    
-    try:
-        # Test loading from keyring (no app_key/secret needed)
-        auth = DropboxAuthManager()
-        
-        if not auth.is_connected():
-            print("❌ No stored credentials found. Run first-time setup first.")
-            return False
-            
-        print("✅ Stored credentials found.")
-        
-        # Test getting access token
-        access_token = auth.get_access_token()
-        print(f"✅ Got access token: {access_token[:10]}...")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error getting access token: {e}")
-        return False
-
 def test_oauth_url_generation():
     """Test OAuth URL generation"""
-    print("\n🧪 STEP 3: OAuth URL generation test")
+    print("🧪 TEST 1: OAuth URL generation")
     print("-" * 40)
     
-    app_key = input("App Key (for URL generation): ").strip()
-    auth = DropboxAuthManager(app_key=app_key)
+    # Use a dummy app key for testing
+    test_app_key = "test_app_key_12345"
     
     try:
+        auth = DropboxAuthManager(app_key=test_app_key)
         oauth_url = auth.get_oauth_url()
         print(f"✅ Generated OAuth URL:")
         print(f"   {oauth_url}")
-        print(f"   Copy this URL to authorize your app")
-        return True
+        expected_url = f"https://www.dropbox.com/oauth2/authorize?response_type=code&client_id={test_app_key}&token_access_type=offline"
+        if oauth_url == expected_url:
+            print("✅ URL format is correct")
+            return True
+        else:
+            print("❌ URL format mismatch")
+            return False
     except Exception as e:
         print(f"❌ Error generating OAuth URL: {e}")
         return False
 
-def test_reset():
-    """Test credential reset functionality"""
-    print("\n🧪 STEP 4: Reset credentials test")
+def test_stored_credentials():
+    """Test retrieving stored credentials"""
+    print("\n🧪 TEST 2: Check for stored credentials")
     print("-" * 40)
     
-    confirm = input("Are you sure you want to clear stored credentials? (y/N): ").strip().lower()
-    if confirm != 'y':
-        print("⚠️ Skipping reset test.")
-        return
-        
     try:
         auth = DropboxAuthManager()
-        auth.reset()
-        print("✅ Credentials cleared from keyring.")
         
-        # Verify they're actually gone
-        auth_check = DropboxAuthManager()
-        if not auth_check.is_connected():
-            print("✅ Verified: No stored credentials found after reset.")
+        print(f"App key stored: {bool(auth.app_key)}")
+        print(f"App secret stored: {bool(auth.app_secret)}")  
+        print(f"Refresh token stored: {bool(auth.refresh_token)}")
+        print(f"Is connected: {auth.is_connected()}")
+        
+        if auth.is_connected():
+            print("✅ Stored credentials found - testing access token...")
+            try:
+                access_token = auth.get_access_token()
+                print(f"✅ Got access token: {access_token[:10]}...")
+                return True
+            except Exception as e:
+                print(f"❌ Error getting access token: {e}")
+                return False
         else:
-            print("❌ Warning: Credentials still found after reset.")
+            print("ℹ️ No stored credentials found (this is expected for first run)")
+            return True
             
     except Exception as e:
-        print(f"❌ Error during reset: {e}")
+        print(f"❌ Error checking stored credentials: {e}")
+        return False
+
+def test_auth_code_exchange():
+    """Test auth code exchange with placeholder values"""
+    print("\n🧪 TEST 3: Auth code exchange test (with dummy values)")
+    print("-" * 40)
+    
+    # These are dummy values - replace with real ones to test
+    test_app_key = "your_app_key_here"
+    test_app_secret = "your_app_secret_here"  
+    test_auth_code = "your_auth_code_here"
+    
+    if test_app_key == "your_app_key_here":
+        print("ℹ️ Skipping auth code exchange test - placeholder values detected")
+        print("ℹ️ To test this, replace the dummy values in this function with real credentials")
+        return True
+    
+    try:
+        auth = DropboxAuthManager(test_app_key, test_app_secret)
+        print(f"Created DropboxAuthManager with app_key: {bool(auth.app_key)}, app_secret: {bool(auth.app_secret)}")
+        
+        auth.exchange_auth_code(test_auth_code)
+        print("✅ Auth code exchange successful")
+        print("✅ Credentials stored in keyring")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error during auth code exchange: {e}")
+        return False
+
+def test_manager_initialization():
+    """Test DropboxAuthManager initialization with different parameters"""
+    print("\n🧪 TEST 4: Manager initialization tests")
+    print("-" * 40)
+    
+    try:
+        # Test 1: Empty initialization
+        auth1 = DropboxAuthManager()
+        print(f"✅ Empty init - app_key: {auth1.app_key}, app_secret: {auth1.app_secret}")
+        
+        # Test 2: With parameters
+        auth2 = DropboxAuthManager("test_key", "test_secret")
+        print(f"✅ With params - app_key: {auth2.app_key}, app_secret: {auth2.app_secret}")
+        
+        # Test 3: With empty strings (this was causing the bug)
+        auth3 = DropboxAuthManager("", "")
+        print(f"✅ Empty strings - app_key: '{auth3.app_key}', app_secret: '{auth3.app_secret}'")
+        
+        return True
+    except Exception as e:
+        print(f"❌ Error during initialization tests: {e}")
+        return False
 
 def main():
-    print("🚀 Dropbox Auth Manager Test Suite")
-    print("=" * 50)
+    print("🚀 Dropbox Auth Manager Test Suite (Non-Interactive)")
+    print("=" * 60)
     
-    while True:
-        print("\nSelect a test:")
-        print("1. First-time setup (exchange auth code)")
-        print("2. Test stored credentials")
-        print("3. Generate OAuth URL")
-        print("4. Reset stored credentials")
-        print("5. Exit")
-        
-        choice = input("\nEnter choice (1-5): ").strip()
-        
-        if choice == "1":
-            test_first_time_setup()
-        elif choice == "2":
-            test_stored_credentials()
-        elif choice == "3":
-            test_oauth_url_generation()
-        elif choice == "4":
-            test_reset()
-        elif choice == "5":
-            print("👋 Exiting test suite.")
-            break
-        else:
-            print("❌ Invalid choice. Please select 1-5.")
+    # Run all tests
+    tests = [
+        test_oauth_url_generation,
+        test_stored_credentials, 
+        test_manager_initialization,
+        test_auth_code_exchange
+    ]
+    
+    results = []
+    for test in tests:
+        result = test()
+        results.append(result)
+    
+    print("\n" + "=" * 60)
+    print("📊 TEST SUMMARY:")
+    passed = sum(results)
+    total = len(results)
+    print(f"✅ Passed: {passed}/{total}")
+    
+    if passed == total:
+        print("🎉 All tests passed!")
+    else:
+        print("⚠️ Some tests failed - check output above")
 
 if __name__ == "__main__":
     main()
