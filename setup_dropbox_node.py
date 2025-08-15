@@ -10,26 +10,46 @@ from .dropbox_auth_manager import DropboxAuthManager
 class DropboxSetupNode:
     @classmethod
     def INPUT_TYPES(cls):
-        return {
+        # Check if credentials are already stored
+        try:
+            auth_manager = DropboxAuthManager()
+            is_connected = auth_manager.is_connected()
+        except:
+            is_connected = False
+        
+        # Base inputs that are always shown
+        inputs = {
             "required": {
-                "app_key":             ("STRING", {"default": ""}),
-                "app_secret":          ("STRING", {"default": ""}),
-                "auth_code":           ("STRING", {"default": ""}),
                 "dropbox_dest_folder": ("STRING", {"default": "/Apps/ComfyUI_Output_Files"}),
             },
-            "optional": {
-                "reconnect": ("BOOLEAN", {
-                    "label": "Reconnect Dropbox (clear saved credentials)",
-                    "default": False
-                }),
-            }
+            "optional": {}
         }
+        
+        if is_connected:
+            # If connected, only show reconnect option
+            inputs["optional"]["reconnect"] = ("BOOLEAN", {
+                "label": "Reconnect Dropbox (clear saved credentials)",
+                "default": False
+            })
+        else:
+            # If not connected, show setup fields
+            inputs["required"].update({
+                "app_key":    ("STRING", {"default": ""}),
+                "app_secret": ("STRING", {"default": ""}),
+                "auth_code":  ("STRING", {"default": ""}),
+            })
+            inputs["optional"]["reconnect"] = ("BOOLEAN", {
+                "label": "Reset stored credentials",
+                "default": False
+            })
+        
+        return inputs
 
     RETURN_TYPES = ("STRING",)
     OUTPUT_NODE = True
     FUNCTION = "setup"
 
-    def setup(self, app_key, app_secret, auth_code, dropbox_dest_folder, reconnect=False):
+    def setup(self, dropbox_dest_folder, app_key=None, app_secret=None, auth_code=None, reconnect=False):
         try:
             # Initialize auth manager
             auth_manager = DropboxAuthManager()
@@ -66,6 +86,9 @@ class DropboxSetupNode:
                 return ("⚠️ Detected RunPod secrets. Using those instead of keyring.",)
 
             # New setup flow using DropboxAuthManager
+            if not app_key or not app_secret or not auth_code:
+                return ("❌ Missing App Key, Secret, or Authorization Code. Please provide all credentials.",)
+            
             if not all([app_key.strip(), app_secret.strip(), auth_code.strip()]):
                 # Generate OAuth URL if no auth code provided
                 if app_key.strip():
