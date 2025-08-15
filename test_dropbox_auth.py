@@ -12,6 +12,10 @@ def test_first_time_setup():
     app_key = input("App Key: ").strip()
     app_secret = input("App Secret: ").strip()
 
+    print(f"Debug - app_key: '{app_key}' (len={len(app_key)})")
+    print(f"Debug - app_secret: '{app_secret}' (len={len(app_secret)})")
+    print(f"Debug - auth_code: '{auth_code}' (len={len(auth_code)})")
+
     auth = DropboxAuthManager(app_key, app_secret)
 
     try:
