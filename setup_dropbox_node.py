@@ -4,6 +4,7 @@ import os
 import requests
 from dotenv import load_dotenv, dotenv_values
 import urllib.parse
+from .dropbox_auth_manager import DropboxAuthManager
 
 
 class DropboxSetupNode:
@@ -15,6 +16,12 @@ class DropboxSetupNode:
                 "app_secret":          ("STRING", {"default": ""}),
                 "auth_code":           ("STRING", {"default": ""}),
                 "dropbox_dest_folder": ("STRING", {"default": "/Apps/ComfyUI_Output_Files"}),
+            },
+            "optional": {
+                "reconnect": ("BOOLEAN", {
+                    "label": "Reconnect Dropbox (clear saved credentials)",
+                    "default": False
+                }),
             }
         }
 
@@ -22,61 +29,66 @@ class DropboxSetupNode:
     OUTPUT_NODE = True
     FUNCTION = "setup"
 
-    def setup(self, app_key, app_secret, auth_code, dropbox_dest_folder):
-        node_dir = os.path.dirname(__file__)
-        env_path = os.path.join(node_dir, ".env")
+    def setup(self, app_key, app_secret, auth_code, dropbox_dest_folder, reconnect=False):
+        try:
+            # Initialize auth manager
+            auth_manager = DropboxAuthManager()
+            
+            # Handle reconnect/reset request
+            if reconnect:
+                auth_manager.reset()
+                return ("🔄 Dropbox credentials cleared. Please provide new auth code to reconnect.",)
+            
+            # Check if already connected (keyring has credentials)
+            if auth_manager.is_connected():
+                # Test the stored credentials by getting an access token
+                try:
+                    access_token = auth_manager.get_access_token()
+                    return ("✅ Dropbox already connected using stored credentials. Ready to upload files.",)
+                except Exception as e:
+                    return (f"⚠️ Stored credentials found but invalid: {e}. Use 'reconnect' to reset.",)
+            
+            # Check for legacy environment variables (keep existing fallback logic)
+            general_env_set = all([
+                os.getenv("DROPBOX_APP_KEY"),
+                os.getenv("DROPBOX_APP_SECRET"),
+                os.getenv("DROPBOX_REFRESH_TOKEN")
+            ])
+            if general_env_set:
+                return ("⚠️ Dropbox credentials found in system environment variables. Using those instead of keyring.",)
 
-        # 1. Skip setup if generic environment variables already exist
-        general_env_set = all([
-            os.getenv("DROPBOX_APP_KEY"),
-            os.getenv("DROPBOX_APP_SECRET"),
-            os.getenv("DROPBOX_REFRESH_TOKEN")
-        ])
-        if general_env_set:
-            return ("⚠️ Dropbox credentials already set in system environment variables. Skipping .env creation.",)
+            # Check for RunPod secrets
+            runpod_env_set = all([
+                os.getenv("RUNPOD_SECRET_DROPBOX_ACCESS_TOKEN"),
+                os.getenv("RUNPOD_SECRET_DROPBOX_REFRESH_TOKEN")
+            ])
+            if runpod_env_set:
+                return ("⚠️ Detected RunPod secrets. Using those instead of keyring.",)
 
-        # 2. Skip setup if RunPod secrets are defined
-        runpod_env_set = all([
-            os.getenv("RUNPOD_SECRET_DROPBOX_ACCESS_TOKEN"),
-            os.getenv("RUNPOD_SECRET_DROPBOX_REFRESH_TOKEN")
-        ])
-        if runpod_env_set:
-            return ("⚠️ Detected RunPod secrets (RUNPOD_SECRET_DROPBOX_ACCESS_TOKEN, RUNPOD_SECRET_DROPBOX_REFRESH_TOKEN). Skipping .env creation.",)
+            # New setup flow using DropboxAuthManager
+            if not all([app_key.strip(), app_secret.strip(), auth_code.strip()]):
+                # Generate OAuth URL if no auth code provided
+                if app_key.strip():
+                    auth_temp = DropboxAuthManager(app_key=app_key.strip())
+                    oauth_url = auth_temp.get_oauth_url()
+                    return (f"❌ Missing credentials. Visit this URL to get auth code:\n{oauth_url}",)
+                else:
+                    return ("❌ Missing App Key, Secret, or Authorization Code.",)
 
-        # 3. Run auth_code flow if no env config is present
-        if not all([app_key, app_secret, auth_code]):
-            return ("❌ Missing App Key, Secret, or Authorization Code.",)
-
-        app_key = app_key.strip()
-        app_secret = app_secret.strip()
-        auth_code = auth_code.strip()
-
-
-        data = {
-            "code": auth_code,
-            "grant_type": "authorization_code",
-            "client_id": app_key,
-            "client_secret": app_secret,
-            "token_access_type": "offline"
-        }
-        headers = {"Content-Type": "application/x-www-form-urlencoded"}
-
-        
-        encoded_data = urllib.parse.urlencode(data)
-        
-        resp = requests.post("https://api.dropbox.com/oauth2/token", headers=headers, data=data)
-        resp.raise_for_status()
-        refresh_token = resp.json().get("refresh_token")
-
-        # Write .env with fallback credentials
-        with open(env_path, "w") as f:
-            f.write(f"DROPBOX_APP_KEY={app_key}\n")
-            f.write(f"DROPBOX_APP_SECRET={app_secret}\n")
-            f.write(f"DROPBOX_REFRESH_TOKEN={refresh_token}\n")
-            f.write(f"DROPBOX_FOLDER={dropbox_dest_folder}\n")
-
-        load_dotenv(env_path, override=True)
-        return ("✅ .env file created with Dropbox credentials.",)
+            # Exchange auth code for refresh token using DropboxAuthManager
+            auth_manager_setup = DropboxAuthManager(app_key.strip(), app_secret.strip())
+            auth_manager_setup.exchange_auth_code(auth_code.strip())
+            
+            # Store destination folder in .env as fallback for other nodes
+            node_dir = os.path.dirname(__file__)
+            env_path = os.path.join(node_dir, ".env")
+            with open(env_path, "w") as f:
+                f.write(f"DROPBOX_FOLDER={dropbox_dest_folder}\n")
+            
+            return ("✅ Dropbox connected successfully! Credentials stored securely in system keyring.",)
+            
+        except Exception as e:
+            return (f"❌ Setup failed: {e}",)
 
 # Required mappings for ComfyUI
 NODE_CLASS_MAPPINGS = {"DropboxSetupNode": DropboxSetupNode}
