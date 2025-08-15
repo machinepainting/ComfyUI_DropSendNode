@@ -3,6 +3,8 @@
 import os
 import requests
 from dotenv import load_dotenv, dotenv_values
+import urllib.parse
+
 
 class DropboxSetupNode:
     @classmethod
@@ -45,14 +47,23 @@ class DropboxSetupNode:
         if not all([app_key, app_secret, auth_code]):
             return ("❌ Missing App Key, Secret, or Authorization Code.",)
 
+        app_key = app_key.strip()
+        app_secret = app_secret.strip()
+        auth_code = auth_code.strip()
+
+
         data = {
             "code": auth_code,
             "grant_type": "authorization_code",
             "client_id": app_key,
-            "client_secret": app_secret
+            "client_secret": app_secret,
+            "token_access_type": "offline"
         }
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
+        
+        encoded_data = urllib.parse.urlencode(data)
+        
         resp = requests.post("https://api.dropbox.com/oauth2/token", headers=headers, data=data)
         resp.raise_for_status()
         refresh_token = resp.json().get("refresh_token")
