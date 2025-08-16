@@ -46,6 +46,20 @@ class OAuthCallbackHandler:
             
             print(f"[OAuthHandler] Auth code exchange successful")
             
+            # Send WebSocket message to trigger ComfyUI refresh
+            try:
+                from server import PromptServer
+                message_data = {
+                    "type": "dropbox_oauth_complete",
+                    "session_id": self.session_id,
+                    "success": True,
+                    "message": "✅ Dropbox connected successfully!"
+                }
+                PromptServer.instance.send_sync("dropbox_oauth_complete", message_data)
+                print(f"[OAuthHandler] Sent WebSocket notification for OAuth completion")
+            except Exception as e:
+                print(f"[OAuthHandler] Warning: Could not send WebSocket notification: {e}")
+            
             # Call completion callback if provided
             if self.completion_callback:
                 await self.completion_callback(True, "✅ Dropbox connected successfully!")
@@ -110,9 +124,27 @@ async def handle_oauth_callback(request):
                 <html><body>
                     <h2>✅ Authorization Successful!</h2>
                     <p>{message}</p>
-                    <p>You can now close this window and return to ComfyUI.</p>
+                    <p>This window will close automatically and ComfyUI will refresh...</p>
                     <script>
-                        setTimeout(() => window.close(), 3000);
+                        // Notify parent window (ComfyUI) about successful OAuth
+                        if (window.opener) {{
+                            try {{
+                                window.opener.postMessage({{
+                                    type: 'dropbox_oauth_complete',
+                                    success: true,
+                                    message: '{message}',
+                                    session_id: '{session_id}'
+                                }}, '*');
+                                console.log('Sent OAuth completion message to parent window');
+                            }} catch (e) {{
+                                console.error('Could not notify parent window:', e);
+                            }}
+                        }}
+                        
+                        // Close this popup after a brief delay
+                        setTimeout(() => {{
+                            window.close();
+                        }}, 2000);
                     </script>
                 </body></html>
                 """, content_type='text/html')
