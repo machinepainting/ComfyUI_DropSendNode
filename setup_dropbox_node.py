@@ -2,6 +2,7 @@
 
 import os
 import requests
+import webbrowser
 from dotenv import load_dotenv, dotenv_values
 import urllib.parse
 from .dropbox_auth_manager import DropboxAuthManager
@@ -69,7 +70,10 @@ class DropboxSetupNode:
                 auth_manager.reset()
                 message = "🔄 Dropbox credentials cleared. Please provide new auth code to reconnect."
                 print(f"[DropboxSetup] {message}")
-                return (message,)
+                return {
+                    "ui": {"text": [message]},
+                    "result": (message,)
+                }
             
             # Check if already connected (keyring has credentials)
             if auth_manager.is_connected():
@@ -79,11 +83,17 @@ class DropboxSetupNode:
                     access_token = auth_manager.get_access_token()
                     message = "✅ Dropbox already connected using stored credentials. Ready to upload files."
                     print(f"[DropboxSetup] {message}")
-                    return (message,)
+                    return {
+                        "ui": {"text": [message]},
+                        "result": (message,)
+                    }
                 except Exception as e:
                     message = f"⚠️ Stored credentials found but invalid: {e}. Use 'reconnect' to reset."
                     print(f"[DropboxSetup] {message}")
-                    return (message,)
+                    return {
+                        "ui": {"text": [message]},
+                        "result": (message,)
+                    }
             
             # Check for legacy environment variables (keep existing fallback logic)
             general_env_set = all([
@@ -126,9 +136,23 @@ class DropboxSetupNode:
                 print(f"[DropboxSetup] No auth code provided - generating OAuth URL")
                 auth_temp = DropboxAuthManager(app_key=app_key_clean)
                 oauth_url = auth_temp.get_oauth_url()
-                message = f"📋 Visit this URL to authorize, then paste the auth code:\n{oauth_url}"
+                
+                # Automatically open browser for better UX
+                try:
+                    print(f"[DropboxSetup] Opening browser automatically...")
+                    webbrowser.open(oauth_url)
+                    message = f"🌐 Browser opened for Dropbox authorization!\n\n📋 After authorizing, paste the code in the auth_code field:\n{oauth_url}"
+                except Exception as e:
+                    print(f"[DropboxSetup] Could not auto-open browser: {e}")
+                    message = f"📋 Visit this URL to authorize, then paste the auth code:\n{oauth_url}"
+                
                 print(f"[DropboxSetup] OAuth URL: {oauth_url}")
-                return (message,)
+                
+                # Use ComfyUI's dynamic return format for better UI integration
+                return {
+                    "ui": {"text": [message]},
+                    "result": (message,)
+                }
 
             # Exchange auth code for refresh token using DropboxAuthManager
             print(f"[DropboxSetup] Attempting to exchange auth code")
@@ -145,12 +169,20 @@ class DropboxSetupNode:
             
             message = "✅ Dropbox connected successfully! Credentials stored securely in system keyring."
             print(f"[DropboxSetup] {message}")
-            return (message,)
+            
+            # Use ComfyUI's dynamic return format for better UI integration
+            return {
+                "ui": {"text": [message]},
+                "result": (message,)
+            }
             
         except Exception as e:
             message = f"❌ Setup failed: {e}"
             print(f"[DropboxSetup] ERROR: {message}")
-            return (message,)
+            return {
+                "ui": {"text": [message]},
+                "result": (message,)
+            }
 
 # Required mappings for ComfyUI
 NODE_CLASS_MAPPINGS = {"DropboxSetupNode": DropboxSetupNode}
