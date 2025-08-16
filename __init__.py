@@ -12,6 +12,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {}
 NODE_DISPLAY_NAME_MAPPINGS.update(RUN_DISPLAY)
 NODE_DISPLAY_NAME_MAPPINGS.update(SETUP_DISPLAY)
 
+# Define web directory for JavaScript extensions
+WEB_DIRECTORY = "./web"
+
 # Register OAuth callback route with ComfyUI server
 def register_oauth_routes():
     """Register OAuth callback routes with ComfyUI's PromptServer"""

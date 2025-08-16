@@ -155,12 +155,12 @@ class DropboxSetupNode:
                     try:
                         print(f"[DropboxSetup] Opening browser for automatic OAuth flow...")
                         webbrowser.open(oauth_url)
-                        message = f"🚀 Automatic OAuth Started!\n\n🌐 Browser opened for authorization. After you authorize in Dropbox, this will complete automatically.\n\n⏳ Waiting for authorization..."
+                        message = f"🚀 Automatic OAuth Started!\n\n🌐 Browser opened for authorization. After you authorize in Dropbox, ComfyUI will refresh automatically.\n\n⏳ Waiting for authorization...\n\n🔗 OAuth URL: {oauth_url}"
                         print(f"[DropboxSetup] Session ID: {session_id}")
                         print(f"[DropboxSetup] Callback URL: {callback_url}")
                     except Exception as e:
                         print(f"[DropboxSetup] Could not auto-open browser: {e}")
-                        message = f"🔗 Automatic OAuth Setup:\n\nPlease visit this URL to authorize:\n{oauth_url}\n\nAfter authorization, setup will complete automatically!"
+                        message = f"🔗 Automatic OAuth Setup:\n\nPlease visit this URL to authorize:\n{oauth_url}\n\nAfter authorization, ComfyUI will refresh automatically!"
                 else:
                     # Manual OAuth flow (original behavior)
                     oauth_url = auth_temp.get_oauth_url()
