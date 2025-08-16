@@ -58,11 +58,35 @@ app.registerExtension({
             console.log("[DropSendNode] Closed OAuth popup window");
         }
         
+        // Reset any reconnect checkboxes before refreshing
+        this.resetReconnectFields();
+        
         // Refresh ComfyUI interface to update node UI
         setTimeout(() => {
             console.log("[DropSendNode] Refreshing ComfyUI interface after OAuth success");
             window.location.reload();
         }, 1500); // Small delay to ensure OAuth processing is complete
+    },
+    
+    resetReconnectFields() {
+        try {
+            // Find all DropboxSetupNode instances and reset their reconnect fields
+            const nodes = app.graph.nodes.filter(node => node.type === "DropboxSetupNode");
+            nodes.forEach(node => {
+                if (node.widgets) {
+                    const reconnectWidget = node.widgets.find(w => w.name === "reconnect");
+                    if (reconnectWidget && reconnectWidget.value === true) {
+                        console.log("[DropSendNode] Resetting reconnect field to false");
+                        reconnectWidget.value = false;
+                        if (node.onWidgetChanged) {
+                            node.onWidgetChanged("reconnect", false);
+                        }
+                    }
+                }
+            });
+        } catch (e) {
+            console.log("[DropSendNode] Could not reset reconnect fields:", e);
+        }
     },
     
     handleReconnectSuccess() {
@@ -125,7 +149,7 @@ window.openDropboxOAuth = function(url) {
     const popup = window.open(
         url,
         'dropbox_oauth',
-        'width=500,height=600,scrollbars=yes,resizable=yes,status=no,location=no,toolbar=no,menubar=no'
+        'width=500,height=700,scrollbars=yes,resizable=yes,status=no,location=no,toolbar=no,menubar=no'
     );
     
     if (popup) {
