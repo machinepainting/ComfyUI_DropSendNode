@@ -3,9 +3,11 @@
 import os
 import requests
 import webbrowser
+import uuid
 from dotenv import load_dotenv, dotenv_values
 import urllib.parse
 from .dropbox_auth_manager import DropboxAuthManager
+from .oauth_handler import OAuthCallbackHandler
 
 
 class DropboxSetupNode:
@@ -45,6 +47,10 @@ class DropboxSetupNode:
                 "label": "Reset stored credentials",
                 "default": False
             })
+            inputs["optional"]["auto_oauth"] = ("BOOLEAN", {
+                "label": "Automatic OAuth (no manual auth code needed)",
+                "default": True
+            })
         
         return inputs
 
@@ -52,7 +58,7 @@ class DropboxSetupNode:
     OUTPUT_NODE = True
     FUNCTION = "setup"
 
-    def setup(self, dropbox_dest_folder, app_key=None, app_secret=None, auth_code=None, reconnect=False):
+    def setup(self, dropbox_dest_folder, app_key=None, app_secret=None, auth_code=None, reconnect=False, auto_oauth=True):
         try:
             print(f"[DropboxSetup] Called with:")
             print(f"  app_key: '{app_key}' (type: {type(app_key)}, bool: {bool(app_key)})")
@@ -135,16 +141,37 @@ class DropboxSetupNode:
             if not auth_code_clean:
                 print(f"[DropboxSetup] No auth code provided - generating OAuth URL")
                 auth_temp = DropboxAuthManager(app_key=app_key_clean)
-                oauth_url = auth_temp.get_oauth_url()
                 
-                # Automatically open browser for better UX
-                try:
-                    print(f"[DropboxSetup] Opening browser automatically...")
-                    webbrowser.open(oauth_url)
-                    message = f"🌐 Browser opened for Dropbox authorization!\n\n📋 After authorizing, paste the code in the auth_code field:\n{oauth_url}"
-                except Exception as e:
-                    print(f"[DropboxSetup] Could not auto-open browser: {e}")
-                    message = f"📋 Visit this URL to authorize, then paste the auth code:\n{oauth_url}"
+                if auto_oauth:
+                    # Automatic OAuth flow with callback
+                    session_id = str(uuid.uuid4())
+                    callback_url = "http://localhost:8188/oauth/dropbox/callback"
+                    oauth_url = auth_temp.get_oauth_url(redirect_uri=callback_url, state=session_id)
+                    
+                    # Set up OAuth session for callback handling
+                    oauth_handler = OAuthCallbackHandler()
+                    oauth_handler.start_oauth_session(session_id, app_key_clean, app_secret_clean)
+                    
+                    try:
+                        print(f"[DropboxSetup] Opening browser for automatic OAuth flow...")
+                        webbrowser.open(oauth_url)
+                        message = f"🚀 Automatic OAuth Started!\n\n🌐 Browser opened for authorization. After you authorize in Dropbox, this will complete automatically.\n\n⏳ Waiting for authorization..."
+                        print(f"[DropboxSetup] Session ID: {session_id}")
+                        print(f"[DropboxSetup] Callback URL: {callback_url}")
+                    except Exception as e:
+                        print(f"[DropboxSetup] Could not auto-open browser: {e}")
+                        message = f"🔗 Automatic OAuth Setup:\n\nPlease visit this URL to authorize:\n{oauth_url}\n\nAfter authorization, setup will complete automatically!"
+                else:
+                    # Manual OAuth flow (original behavior)
+                    oauth_url = auth_temp.get_oauth_url()
+                    
+                    try:
+                        print(f"[DropboxSetup] Opening browser for manual OAuth flow...")
+                        webbrowser.open(oauth_url)
+                        message = f"🌐 Browser opened for Dropbox authorization!\n\n📋 After authorizing, paste the code in the auth_code field:\n{oauth_url}"
+                    except Exception as e:
+                        print(f"[DropboxSetup] Could not auto-open browser: {e}")
+                        message = f"📋 Visit this URL to authorize, then paste the auth code:\n{oauth_url}"
                 
                 print(f"[DropboxSetup] OAuth URL: {oauth_url}")
                 

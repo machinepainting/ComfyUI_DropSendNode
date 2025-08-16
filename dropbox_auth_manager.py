@@ -28,7 +28,7 @@ class DropboxAuthManager:
         except KeyringError as e:
             raise RuntimeError(f"Failed to store Dropbox tokens securely: {e}")
 
-    def exchange_auth_code(self, auth_code):
+    def exchange_auth_code(self, auth_code, redirect_uri=None):
         if not (self.app_key and self.app_secret):
             raise ValueError("App key and secret must be set before exchanging auth code.")
 
@@ -38,6 +38,11 @@ class DropboxAuthManager:
             "client_id": self.app_key,
             "client_secret": self.app_secret
         }
+        
+        # Include redirect_uri if it was used in the authorization request
+        if redirect_uri:
+            data["redirect_uri"] = redirect_uri
+        
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         response = requests.post("https://api.dropbox.com/oauth2/token", headers=headers, data=data)
         response.raise_for_status()
@@ -85,9 +90,18 @@ class DropboxAuthManager:
             # If passwords don't exist, that's fine
             pass
 
-    def get_oauth_url(self):
+    def get_oauth_url(self, redirect_uri=None, state=None):
         """Generate OAuth URL for initial authorization"""
         if not self.app_key:
             raise ValueError("App key must be set to generate OAuth URL.")
-        return f"https://www.dropbox.com/oauth2/authorize?response_type=code&client_id={self.app_key}&token_access_type=offline"
+        
+        url = f"https://www.dropbox.com/oauth2/authorize?response_type=code&client_id={self.app_key}&token_access_type=offline"
+        
+        if redirect_uri:
+            url += f"&redirect_uri={redirect_uri}"
+        
+        if state:
+            url += f"&state={state}"
+            
+        return url
 
