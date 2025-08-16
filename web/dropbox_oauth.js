@@ -54,24 +54,39 @@ app.registerExtension({
         }, 1500); // Small delay to ensure OAuth processing is complete
     },
     
-    // Override the webbrowser.open functionality for better popup control
+    // Override node execution to detect and handle OAuth URLs
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
         if (nodeData.name === "DropboxSetupNode") {
             console.log("[DropSendNode] Registered DropboxSetupNode enhancement");
             
             // Add custom OAuth popup handling
-            const originalExecute = nodeType.prototype.onExecuted;
+            const originalExecuted = nodeType.prototype.onExecuted;
             nodeType.prototype.onExecuted = function(message) {
+                console.log("[DropSendNode] Node executed with message:", message);
+                
                 // Check if this execution includes OAuth URL generation
-                if (message && typeof message === 'string' && message.includes('🚀 Automatic OAuth Started!')) {
-                    console.log("[DropSendNode] Detected automatic OAuth start");
-                    
-                    // Extract OAuth URL from the message (it should be in the callback setup)
-                    // We'll enhance this to open a proper popup instead of a full tab
+                if (message && typeof message === 'object' && message.text && message.text[0]) {
+                    const text = message.text[0];
+                    if (text.includes('🚀 Automatic OAuth Ready!')) {
+                        console.log("[DropSendNode] Detected automatic OAuth ready message");
+                        
+                        // Extract OAuth URL from the message
+                        const urlMatch = text.match(/🔗 (https:\/\/www\.dropbox\.com\/oauth2\/authorize[^\s]+)/);
+                        if (urlMatch) {
+                            const oauthUrl = urlMatch[1];
+                            console.log("[DropSendNode] Extracted OAuth URL:", oauthUrl);
+                            
+                            // Auto-open the popup after a brief delay
+                            setTimeout(() => {
+                                console.log("[DropSendNode] Auto-opening OAuth popup...");
+                                window.openDropboxOAuth(oauthUrl);
+                            }, 500);
+                        }
+                    }
                 }
                 
-                if (originalExecute) {
-                    return originalExecute.apply(this, arguments);
+                if (originalExecuted) {
+                    return originalExecuted.apply(this, arguments);
                 }
             };
         }
