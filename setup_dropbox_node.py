@@ -33,7 +33,7 @@ class DropboxSetupNode:
         if is_connected:
             # If connected, only show reconnect option
             inputs["optional"]["reconnect"] = ("BOOLEAN", {
-                "label": "Reconnect Dropbox (clear saved credentials)",
+                "label": "🔄 Reconnect Dropbox (clears credentials & refreshes UI)",
                 "default": False
             })
         else:
@@ -74,7 +74,21 @@ class DropboxSetupNode:
             if reconnect:
                 print("[DropboxSetup] Reconnect requested - clearing credentials")
                 auth_manager.reset()
-                message = "🔄 Dropbox credentials cleared. Please provide new auth code to reconnect."
+                
+                # Send WebSocket message to trigger ComfyUI refresh after clearing credentials
+                try:
+                    from server import PromptServer
+                    message_data = {
+                        "type": "dropbox_reconnect_complete",
+                        "success": True,
+                        "message": "🔄 Credentials cleared - ComfyUI will refresh to show auth fields"
+                    }
+                    PromptServer.instance.send_sync("dropbox_reconnect_complete", message_data)
+                    print(f"[DropboxSetup] Sent WebSocket notification for reconnect completion")
+                except Exception as e:
+                    print(f"[DropboxSetup] Warning: Could not send WebSocket notification: {e}")
+                
+                message = "🔄 Dropbox credentials cleared. ComfyUI will refresh to show auth fields..."
                 print(f"[DropboxSetup] {message}")
                 return {
                     "ui": {"text": [message]},

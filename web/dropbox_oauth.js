@@ -25,6 +25,17 @@ app.registerExtension({
             }
         });
         
+        // Listen for WebSocket messages about reconnect completion
+        api.addEventListener("dropbox_reconnect_complete", (event) => {
+            console.log("[DropSendNode] Received reconnect completion notification via WebSocket", event.detail);
+            
+            const data = event.detail;
+            if (data.success) {
+                console.log("[DropSendNode] Reconnect successful - refreshing interface");
+                this.handleReconnectSuccess();
+            }
+        });
+        
         // Listen for postMessage from OAuth popup window
         window.addEventListener("message", (event) => {
             if (event.data && event.data.type === 'dropbox_oauth_complete') {
@@ -49,9 +60,17 @@ app.registerExtension({
         
         // Refresh ComfyUI interface to update node UI
         setTimeout(() => {
-            console.log("[DropSendNode] Refreshing ComfyUI interface");
+            console.log("[DropSendNode] Refreshing ComfyUI interface after OAuth success");
             window.location.reload();
         }, 1500); // Small delay to ensure OAuth processing is complete
+    },
+    
+    handleReconnectSuccess() {
+        // Refresh ComfyUI interface to show auth fields again
+        setTimeout(() => {
+            console.log("[DropSendNode] Refreshing ComfyUI interface after reconnect");
+            window.location.reload();
+        }, 1000); // Shorter delay for reconnect
     },
     
     // Override node execution to detect and handle OAuth URLs
