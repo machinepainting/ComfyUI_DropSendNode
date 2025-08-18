@@ -13,10 +13,39 @@ from .oauth_handler import OAuthCallbackHandler
 class DropboxSetupNode:
     @classmethod
     def INPUT_TYPES(cls):
-        # Check if credentials are already stored
+        # Check if credentials are already stored (keyring or .env file)
         try:
             auth_manager = DropboxAuthManager()
             is_connected = auth_manager.is_connected()
+            
+            # Also check for .env file credentials
+            if not is_connected:
+                node_dir = os.path.dirname(__file__)
+                env_path = os.path.join(node_dir, ".env")
+                if os.path.exists(env_path):
+                    from dotenv import dotenv_values
+                    env_vars = dotenv_values(env_path)
+                    if all([env_vars.get("DROPBOX_APP_KEY"), env_vars.get("DROPBOX_APP_SECRET"), env_vars.get("DROPBOX_REFRESH_TOKEN")]):
+                        is_connected = True
+                        print(f"[DropboxSetup] Found credentials in .env file")
+            
+            # Also check for display_only completion marker - but only if environment variables actually exist
+            if not is_connected:
+                node_dir = os.path.dirname(__file__)
+                display_marker_path = os.path.join(node_dir, ".dropbox_display_complete")
+                if os.path.exists(display_marker_path):
+                    # For display_only, verify that the user actually set up environment variables
+                    display_only_env_set = all([
+                        os.getenv("DROPBOX_APP_KEY"),
+                        os.getenv("DROPBOX_APP_SECRET"),
+                        os.getenv("DROPBOX_REFRESH_TOKEN")
+                    ])
+                    if display_only_env_set:
+                        is_connected = True
+                        print(f"[DropboxSetup] Found display_only completion marker with valid environment variables")
+                    else:
+                        print(f"[DropboxSetup] Found display_only completion marker but environment variables not set yet")
+            
             print(f"[DropboxSetup] INPUT_TYPES check - is_connected: {is_connected}")
         except Exception as e:
             print(f"[DropboxSetup] INPUT_TYPES error: {e}")
@@ -51,6 +80,10 @@ class DropboxSetupNode:
                 "label": "Automatic OAuth (no manual auth code needed)",
                 "default": True
             })
+            inputs["optional"]["storage_method"] = (["keyring", "env_file", "display_only"], {
+                "label": "Credential Storage Method",
+                "default": "keyring"
+            })
         
         return inputs
 
@@ -58,13 +91,15 @@ class DropboxSetupNode:
     OUTPUT_NODE = True
     FUNCTION = "setup"
 
-    def setup(self, dropbox_dest_folder, app_key=None, app_secret=None, auth_code=None, reconnect=False, auto_oauth=True):
+    def setup(self, dropbox_dest_folder, app_key=None, app_secret=None, auth_code=None, reconnect=False, auto_oauth=True, storage_method="keyring"):
         try:
             print(f"[DropboxSetup] Called with:")
             print(f"  app_key: '{app_key}' (type: {type(app_key)}, bool: {bool(app_key)})")
             print(f"  app_secret: '{app_secret}' (type: {type(app_secret)}, bool: {bool(app_secret)})")  
             print(f"  auth_code: '{auth_code}' (type: {type(auth_code)}, bool: {bool(auth_code)})")
             print(f"  reconnect: {reconnect}")
+            print(f"  auto_oauth: {auto_oauth}")
+            print(f"  storage_method: {storage_method}")
             
             # Initialize auth manager
             auth_manager = DropboxAuthManager()
@@ -73,7 +108,22 @@ class DropboxSetupNode:
             # Handle reconnect/reset request
             if reconnect:
                 print("[DropboxSetup] Reconnect requested - clearing credentials")
+                
+                # Clear keyring credentials
                 auth_manager.reset()
+                
+                # Also clear .env file if it exists
+                node_dir = os.path.dirname(__file__)
+                env_path = os.path.join(node_dir, ".env")
+                if os.path.exists(env_path):
+                    print(f"[DropboxSetup] Removing .env file: {env_path}")
+                    os.remove(env_path)
+                
+                # Also clear display_only marker if it exists
+                display_marker_path = os.path.join(node_dir, ".dropbox_display_complete")
+                if os.path.exists(display_marker_path):
+                    print(f"[DropboxSetup] Removing display_only marker: {display_marker_path}")
+                    os.remove(display_marker_path)
                 
                 # Send WebSocket message to trigger ComfyUI refresh after clearing credentials
                 try:
@@ -81,14 +131,14 @@ class DropboxSetupNode:
                     message_data = {
                         "type": "dropbox_reconnect_complete",
                         "success": True,
-                        "message": "🔄 Credentials cleared - ComfyUI will refresh to show auth fields"
+                        "message": "🔄 All credentials cleared - ComfyUI will refresh to show auth fields"
                     }
                     PromptServer.instance.send_sync("dropbox_reconnect_complete", message_data)
                     print(f"[DropboxSetup] Sent WebSocket notification for reconnect completion")
                 except Exception as e:
                     print(f"[DropboxSetup] Warning: Could not send WebSocket notification: {e}")
                 
-                message = "🔄 Dropbox credentials cleared. ComfyUI will refresh to show auth fields..."
+                message = "🔄 Dropbox credentials cleared from all storage locations. ComfyUI will refresh to show auth fields..."
                 print(f"[DropboxSetup] {message}")
                 return {
                     "ui": {"text": [message]},
@@ -101,7 +151,7 @@ class DropboxSetupNode:
                 # Test the stored credentials by getting an access token
                 try:
                     access_token = auth_manager.get_access_token()
-                    message = "✅ Dropbox already connected using stored credentials. Ready to upload files."
+                    message = "✅ Dropbox already connected using stored keyring credentials. Ready to upload files."
                     print(f"[DropboxSetup] {message}")
                     return {
                         "ui": {"text": [message]},
@@ -115,14 +165,31 @@ class DropboxSetupNode:
                         "result": (message,)
                     }
             
-            # Check for legacy environment variables (keep existing fallback logic)
-            general_env_set = all([
+            # Check for display_only environment variables (user set them up after OAuth flow)
+            display_only_env_set = all([
                 os.getenv("DROPBOX_APP_KEY"),
-                os.getenv("DROPBOX_APP_SECRET"),
+                os.getenv("DROPBOX_APP_SECRET"), 
                 os.getenv("DROPBOX_REFRESH_TOKEN")
             ])
-            if general_env_set:
-                return ("⚠️ Dropbox credentials found in system environment variables. Using those instead of keyring.",)
+            if display_only_env_set:
+                # Check if this came from display_only flow
+                node_dir = os.path.dirname(__file__)
+                display_marker_path = os.path.join(node_dir, ".dropbox_display_complete")
+                if os.path.exists(display_marker_path):
+                    message = "✅ Dropbox connected using environment variables (display_only setup). Ready to upload files."
+                    print(f"[DropboxSetup] {message}")
+                    return {
+                        "ui": {"text": [message]},
+                        "result": (message,)
+                    }
+                else:
+                    # Legacy environment variables (not from display_only)
+                    message = "✅ Dropbox credentials found in system environment variables. Ready to upload files."
+                    print(f"[DropboxSetup] {message}")
+                    return {
+                        "ui": {"text": [message]},
+                        "result": (message,)
+                    }
 
             # Check for RunPod secrets
             runpod_env_set = all([
@@ -164,7 +231,7 @@ class DropboxSetupNode:
                     
                     # Set up OAuth session for callback handling
                     oauth_handler = OAuthCallbackHandler()
-                    oauth_handler.start_oauth_session(session_id, app_key_clean, app_secret_clean)
+                    oauth_handler.start_oauth_session(session_id, app_key_clean, app_secret_clean, storage_method=storage_method, dropbox_folder=dropbox_dest_folder)
                     
                     try:
                         print(f"[DropboxSetup] Setting up automatic OAuth popup...")
@@ -199,18 +266,83 @@ class DropboxSetupNode:
             # Exchange auth code for refresh token using DropboxAuthManager
             print(f"[DropboxSetup] Attempting to exchange auth code")
             auth_manager_setup = DropboxAuthManager(app_key_clean, app_secret_clean)
-            auth_manager_setup.exchange_auth_code(auth_code_clean)
+            
+            # Get the tokens without storing them yet
+            # Only pass redirect_uri if this was an automatic OAuth flow
+            if auto_oauth:
+                callback_url = "http://localhost:8188/oauth/dropbox/callback"
+                print(f"[DropboxSetup] Using automatic OAuth with redirect_uri: {callback_url}")
+                result = auth_manager_setup.exchange_auth_code_raw(auth_code_clean, redirect_uri=callback_url)
+            else:
+                print(f"[DropboxSetup] Using manual OAuth (no redirect_uri)")
+                result = auth_manager_setup.exchange_auth_code_raw(auth_code_clean)
+            refresh_token = result.get("refresh_token")
+            
             print(f"[DropboxSetup] Auth code exchange successful")
+            print(f"[DropboxSetup] Using storage method: {storage_method}")
             
-            # Store destination folder in .env as fallback for other nodes
-            node_dir = os.path.dirname(__file__)
-            env_path = os.path.join(node_dir, ".env")
-            with open(env_path, "w") as f:
-                f.write(f"DROPBOX_FOLDER={dropbox_dest_folder}\n")
-            print(f"[DropboxSetup] Stored destination folder: {dropbox_dest_folder}")
+            # Handle different storage methods
+            if storage_method == "keyring":
+                # Store in system keyring (original behavior)
+                auth_manager_setup.store_tokens(app_key_clean, app_secret_clean, refresh_token)
+                message = "✅ Dropbox connected successfully! Credentials stored securely in system keyring."
+                
+            elif storage_method == "env_file":
+                # Store in .env file
+                node_dir = os.path.dirname(__file__)
+                env_path = os.path.join(node_dir, ".env")
+                with open(env_path, "w") as f:
+                    f.write(f"DROPBOX_APP_KEY={app_key_clean}\n")
+                    f.write(f"DROPBOX_APP_SECRET={app_secret_clean}\n")
+                    f.write(f"DROPBOX_REFRESH_TOKEN={refresh_token}\n")
+                    f.write(f"DROPBOX_FOLDER={dropbox_dest_folder}\n")
+                message = "✅ Dropbox connected successfully! Credentials saved to .env file."
+                
+            elif storage_method == "display_only":
+                # Display credentials for manual copying and create completion marker
+                node_dir = os.path.dirname(__file__)
+                display_marker_path = os.path.join(node_dir, ".dropbox_display_complete")
+                with open(display_marker_path, "w") as f:
+                    f.write("display_only_setup_completed")
+                
+                message = f"""✅ Dropbox Connected Successfully!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 ENVIRONMENT VARIABLES - Copy & Paste Ready
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DROPBOX_APP_KEY={app_key_clean}
+
+DROPBOX_APP_SECRET={app_secret_clean}
+
+DROPBOX_REFRESH_TOKEN={refresh_token}
+
+DROPBOX_FOLDER={dropbox_dest_folder}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 Perfect for RunPod, Docker, and production environments!
+🚀 These credentials are ready to use immediately.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
+                
+            else:
+                # Fallback to keyring
+                auth_manager_setup.store_tokens(app_key_clean, app_secret_clean, refresh_token)
+                message = "✅ Dropbox connected successfully! Credentials stored securely in system keyring."
             
-            message = "✅ Dropbox connected successfully! Credentials stored securely in system keyring."
             print(f"[DropboxSetup] {message}")
+            
+            # For display_only, ensure credentials are prominently shown in console
+            if storage_method == "display_only":
+                print("\n" + "="*60)
+                print("🔥 DROPBOX CREDENTIALS READY FOR PRODUCTION 🔥")
+                print("="*60)
+                print(f"DROPBOX_APP_KEY={app_key_clean}")
+                print(f"DROPBOX_APP_SECRET={app_secret_clean}")
+                print(f"DROPBOX_REFRESH_TOKEN={refresh_token}")
+                print(f"DROPBOX_FOLDER={dropbox_dest_folder}")
+                print("="*60)
+                print("📋 Copy these to your environment variables!")
+                print("="*60 + "\n")
             
             # Use ComfyUI's dynamic return format for better UI integration
             return {

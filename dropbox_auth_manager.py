@@ -55,6 +55,55 @@ class DropboxAuthManager:
         self.store_tokens(self.app_key, self.app_secret, refresh_token)
         self.refresh_token = refresh_token
         return True
+    
+    def exchange_auth_code_raw(self, auth_code, redirect_uri=None):
+        """Exchange auth code for tokens without storing them"""
+        if not (self.app_key and self.app_secret):
+            raise ValueError("App key and secret must be set before exchanging auth code.")
+
+        data = {
+            "code": auth_code,
+            "grant_type": "authorization_code",
+            "client_id": self.app_key,
+            "client_secret": self.app_secret
+        }
+        
+        # Include redirect_uri if it was used in the authorization request
+        if redirect_uri:
+            data["redirect_uri"] = redirect_uri
+        
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        
+        print(f"[DropboxAuthManager] Token exchange request data: {data}")
+        print(f"[DropboxAuthManager] Making request to: https://api.dropbox.com/oauth2/token")
+        
+        response = requests.post("https://api.dropbox.com/oauth2/token", headers=headers, data=data)
+        
+        print(f"[DropboxAuthManager] Response status: {response.status_code}")
+        print(f"[DropboxAuthManager] Response text: {response.text}")
+        
+        # If we get a 400 error and we're using a redirect_uri, try without it
+        # This handles cases where the auth code was obtained without the redirect_uri
+        if response.status_code == 400 and redirect_uri:
+            print(f"[DropboxAuthManager] 400 error with redirect_uri, trying without redirect_uri...")
+            
+            data_without_redirect = {
+                "code": auth_code,
+                "grant_type": "authorization_code",
+                "client_id": self.app_key,
+                "client_secret": self.app_secret
+            }
+            
+            print(f"[DropboxAuthManager] Retry request data (no redirect_uri): {data_without_redirect}")
+            
+            response = requests.post("https://api.dropbox.com/oauth2/token", headers=headers, data=data_without_redirect)
+            
+            print(f"[DropboxAuthManager] Retry response status: {response.status_code}")
+            print(f"[DropboxAuthManager] Retry response text: {response.text}")
+        
+        response.raise_for_status()
+
+        return response.json()
 
     def get_access_token(self):
         if not self.is_connected():
