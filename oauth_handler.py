@@ -79,6 +79,19 @@ class OAuthCallbackHandler:
                 with open(display_marker_path, "w") as f:
                     f.write("display_only_setup_completed")
                 
+                # Print credentials to console for easy copy/paste
+                print("\n" + "=" * 80)
+                print("🔥 DROPBOX CREDENTIALS READY FOR PRODUCTION - COPY FROM CONSOLE 🔥")
+                print("=" * 80)
+                print(f"DROPBOX_APP_KEY={self.app_key}")
+                print(f"DROPBOX_APP_SECRET={self.app_secret}")
+                print(f"DROPBOX_REFRESH_TOKEN={refresh_token}")
+                print(f"DROPBOX_FOLDER={self.dropbox_folder}")
+                print("=" * 80)
+                print("📋 Copy the lines above to your environment variables!")
+                print("🚀 Perfect for RunPod, Docker, and production environments!")
+                print("=" * 80 + "\n")
+                
                 success_message = f"""✅ Dropbox Connected Successfully!
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -103,19 +116,22 @@ DROPBOX_FOLDER={self.dropbox_folder}
                 auth_manager.store_tokens(self.app_key, self.app_secret, refresh_token)
                 success_message = "✅ Dropbox connected successfully! Credentials stored securely in system keyring."
             
-            # Send WebSocket message to trigger ComfyUI refresh
-            try:
-                from server import PromptServer
-                message_data = {
-                    "type": "dropbox_oauth_complete",
-                    "session_id": self.session_id,
-                    "success": True,
-                    "message": success_message
-                }
-                PromptServer.instance.send_sync("dropbox_oauth_complete", message_data)
-                print(f"[OAuthHandler] Sent WebSocket notification for OAuth completion")
-            except Exception as e:
-                print(f"[OAuthHandler] Warning: Could not send WebSocket notification: {e}")
+            # Send WebSocket message to trigger ComfyUI refresh (except for display_only)
+            if self.storage_method != "display_only":
+                try:
+                    from server import PromptServer
+                    message_data = {
+                        "type": "dropbox_oauth_complete",
+                        "session_id": self.session_id,
+                        "success": True,
+                        "message": success_message
+                    }
+                    PromptServer.instance.send_sync("dropbox_oauth_complete", message_data)
+                    print(f"[OAuthHandler] Sent WebSocket notification for OAuth completion")
+                except Exception as e:
+                    print(f"[OAuthHandler] Warning: Could not send WebSocket notification: {e}")
+            else:
+                print(f"[OAuthHandler] Skipping WebSocket notification for display_only method - no auto-refresh")
             
             # Call completion callback if provided
             if self.completion_callback:
@@ -309,7 +325,7 @@ def create_display_only_success_page(session_id, app_key, app_secret, refresh_to
             </div>
             
             <div class="auto-close-notice">
-                🚀 ComfyUI will refresh automatically to hide the auth fields. Close this window when you're done copying credentials.
+                📋 Copy the credentials above, then manually refresh ComfyUI to hide the auth fields. Close this window when done.
             </div>
         </div>
         
@@ -344,20 +360,9 @@ def create_display_only_success_page(session_id, app_key, app_secret, refresh_to
                 }});
             }});
             
-            // Notify parent window (ComfyUI) about successful OAuth
-            if (window.opener) {{
-                try {{
-                    window.opener.postMessage({{
-                        type: 'dropbox_oauth_complete',
-                        success: true,
-                        message: 'Dropbox connected successfully with display_only method',
-                        session_id: '{session_id}'
-                    }}, '*');
-                    console.log('Sent OAuth completion message to parent window');
-                }} catch (e) {{
-                    console.error('Could not notify parent window:', e);
-                }}
-            }}
+            // For display_only, don't auto-refresh ComfyUI - let user copy credentials first
+            // The user can manually refresh when they're done
+            console.log('Display-only OAuth completed - not auto-refreshing ComfyUI');
             
             // Don't auto-close for display_only - let user close manually after copying credentials
             // The user can close this window when they're done copying
