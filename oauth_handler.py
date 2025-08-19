@@ -371,6 +371,57 @@ def create_display_only_success_page(session_id, app_key, app_secret, refresh_to
     </html>
     """, content_type='text/html')
 
+def get_server_base_url(request=None):
+    """Dynamically detect the server base URL for OAuth callbacks"""
+    try:
+        if request:
+            # Try to get from the incoming request
+            scheme = 'https' if request.secure else 'http'
+            host = request.host
+            base_url = f"{scheme}://{host}"
+            print(f"[OAuthHandler] Detected server URL from request: {base_url}")
+            return base_url
+        else:
+            # Fallback: try to detect from ComfyUI server instance
+            from server import PromptServer
+            if hasattr(PromptServer, 'instance') and PromptServer.instance:
+                # Get the port from ComfyUI server
+                port = getattr(PromptServer.instance, 'port', 8188)
+                
+                # Try to detect if we're on RunPod or similar cloud service
+                import socket
+                hostname = socket.gethostname()
+                
+                # Check for RunPod-specific hostname patterns
+                if 'runpod' in hostname.lower() or hostname.endswith('.runpod.net'):
+                    # For RunPod, try to get the public URL
+                    import os
+                    runpod_public_ip = os.getenv('RUNPOD_PUBLIC_IP')
+                    if runpod_public_ip:
+                        base_url = f"https://{runpod_public_ip}:{port}"
+                        print(f"[OAuthHandler] Detected RunPod URL: {base_url}")
+                        return base_url
+                
+                # Check for common cloud service environment variables
+                public_url = os.getenv('COMFYUI_PUBLIC_URL') or os.getenv('PUBLIC_URL')
+                if public_url:
+                    base_url = public_url.rstrip('/')
+                    print(f"[OAuthHandler] Using configured PUBLIC_URL: {base_url}")
+                    return base_url
+                
+                # Default fallback to localhost
+                base_url = f"http://localhost:{port}"
+                print(f"[OAuthHandler] Fallback to localhost: {base_url}")
+                return base_url
+            
+    except Exception as e:
+        print(f"[OAuthHandler] Error detecting server URL: {e}")
+    
+    # Final fallback
+    base_url = "http://localhost:8188"
+    print(f"[OAuthHandler] Using final fallback: {base_url}")
+    return base_url
+
 # OAuth callback route handler
 async def handle_oauth_callback(request):
     """Handle incoming OAuth callback from Dropbox"""
@@ -408,8 +459,9 @@ async def handle_oauth_callback(request):
             session_data = pending_oauth_sessions[session_id]
             handler = session_data['handler']
             
-            # Process the callback with the redirect URI
-            callback_url = "http://localhost:8188/oauth/dropbox/callback"
+            # Process the callback with the dynamic redirect URI
+            base_url = get_server_base_url(request)
+            callback_url = f"{base_url}/oauth/dropbox/callback"
             success, message = await handler.process_callback(auth_code, redirect_uri=callback_url)
             
             # Clean up the session

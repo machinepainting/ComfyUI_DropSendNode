@@ -7,7 +7,7 @@ import uuid
 from dotenv import load_dotenv, dotenv_values
 import urllib.parse
 from .dropbox_auth_manager import DropboxAuthManager
-from .oauth_handler import OAuthCallbackHandler
+from .oauth_handler import OAuthCallbackHandler, get_server_base_url
 
 
 class DropboxSetupNode:
@@ -238,7 +238,8 @@ class DropboxSetupNode:
                 if auto_oauth:
                     # Automatic OAuth flow with callback
                     session_id = str(uuid.uuid4())
-                    callback_url = "http://localhost:8188/oauth/dropbox/callback"
+                    base_url = get_server_base_url()
+                    callback_url = f"{base_url}/oauth/dropbox/callback"
                     oauth_url = auth_temp.get_oauth_url(redirect_uri=callback_url, state=session_id)
                     
                     # Set up OAuth session for callback handling
@@ -282,7 +283,8 @@ class DropboxSetupNode:
             # Get the tokens without storing them yet
             # Only pass redirect_uri if this was an automatic OAuth flow
             if auto_oauth:
-                callback_url = "http://localhost:8188/oauth/dropbox/callback"
+                base_url = get_server_base_url()
+                callback_url = f"{base_url}/oauth/dropbox/callback"
                 print(f"[DropboxSetup] Using automatic OAuth with redirect_uri: {callback_url}")
                 result = auth_manager_setup.exchange_auth_code_raw(auth_code_clean, redirect_uri=callback_url)
             else:
