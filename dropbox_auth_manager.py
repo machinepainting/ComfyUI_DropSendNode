@@ -6,16 +6,109 @@ from keyring.errors import KeyringError
 
 DROPBOX_KEYRING_SERVICE = "comfyui_dropbox"
 
+def setup_keyring_backend():
+    """Setup the best available keyring backend for the environment"""
+    try:
+        # Try to use the default backend first
+        keyring.get_keyring()
+        test_service = "test_keyring_availability"
+        keyring.set_password(test_service, "test", "test")
+        keyring.delete_password(test_service, "test")
+        print("[DropboxAuthManager] Using system keyring backend")
+        return True
+    except Exception as e:
+        print(f"[DropboxAuthManager] System keyring not available: {e}")
+        
+        # Try keyrings.alt file-based backends
+        try:
+            import keyrings.alt.file
+            import keyrings.alt.cryptfile
+            
+            # Try encrypted file keyring first (more secure)
+            try:
+                crypto_keyring = keyrings.alt.cryptfile.CryptFileKeyring()
+                # Set a simple password for the keyring file
+                crypto_keyring.keyring_key = "comfyui_dropbox_keyring_2024"
+                
+                # Set custom file location in the plugin directory
+                import os
+                plugin_dir = os.path.dirname(os.path.abspath(__file__))
+                crypto_keyring.filename = os.path.join(plugin_dir, ".dropbox_keyring.cfg")
+                
+                keyring.set_keyring(crypto_keyring)
+                
+                # Test it works
+                test_service = "test_crypto_keyring"
+                keyring.set_password(test_service, "test", "test")
+                keyring.delete_password(test_service, "test")
+                
+                print(f"[DropboxAuthManager] Using encrypted file keyring: {crypto_keyring.filename}")
+                return True
+                
+            except Exception as crypto_error:
+                print(f"[DropboxAuthManager] Encrypted file keyring failed: {crypto_error}")
+                
+                # Fall back to plaintext file keyring
+                try:
+                    file_keyring = keyrings.alt.file.PlaintextKeyring()
+                    
+                    # Set custom file location in the plugin directory  
+                    plugin_dir = os.path.dirname(os.path.abspath(__file__))
+                    file_keyring.filename = os.path.join(plugin_dir, ".dropbox_keyring_plaintext.cfg")
+                    
+                    keyring.set_keyring(file_keyring)
+                    
+                    # Test it works
+                    test_service = "test_file_keyring"
+                    keyring.set_password(test_service, "test", "test")
+                    keyring.delete_password(test_service, "test")
+                    
+                    print(f"[DropboxAuthManager] Using plaintext file keyring: {file_keyring.filename}")
+                    print(f"[DropboxAuthManager] WARNING: Credentials will be stored in plaintext")
+                    return True
+                    
+                except Exception as file_error:
+                    print(f"[DropboxAuthManager] File keyring also failed: {file_error}")
+                    return False
+                    
+        except ImportError:
+            print("[DropboxAuthManager] keyrings.alt not available - install with: pip install keyrings.alt")
+            return False
+            
+    except Exception as e:
+        print(f"[DropboxAuthManager] All keyring backends failed: {e}")
+        return False
+
 class DropboxAuthManager:
     def __init__(self, app_key=None, app_secret=None):
-        self.app_key = app_key if app_key is not None else keyring.get_password(DROPBOX_KEYRING_SERVICE, "app_key")
-        self.app_secret = app_secret if app_secret is not None else keyring.get_password(DROPBOX_KEYRING_SERVICE, "app_secret")
-        self.refresh_token = keyring.get_password(DROPBOX_KEYRING_SERVICE, "refresh_token")
+        # Setup the best available keyring backend first
+        self.keyring_available = setup_keyring_backend()
+        
+        # Try to get from keyring, but handle backend unavailability gracefully
+        if self.keyring_available:
+            try:
+                self.app_key = app_key if app_key is not None else keyring.get_password(DROPBOX_KEYRING_SERVICE, "app_key")
+                self.app_secret = app_secret if app_secret is not None else keyring.get_password(DROPBOX_KEYRING_SERVICE, "app_secret")
+                self.refresh_token = keyring.get_password(DROPBOX_KEYRING_SERVICE, "refresh_token")
+            except Exception as e:
+                print(f"[DropboxAuthManager] Error reading from keyring: {e}")
+                self.app_key = app_key
+                self.app_secret = app_secret
+                self.refresh_token = None
+                self.keyring_available = False
+        else:
+            print(f"[DropboxAuthManager] No keyring backend available - using provided credentials only")
+            self.app_key = app_key
+            self.app_secret = app_secret
+            self.refresh_token = None
 
     def is_connected(self):
         return bool(self.app_key and self.app_secret and self.refresh_token)
 
     def store_tokens(self, app_key, app_secret, refresh_token):
+        if not self.keyring_available:
+            raise RuntimeError("Keyring not available. Please use 'env_file' or 'display_only' storage method instead.")
+        
         try:
             keyring.set_password(DROPBOX_KEYRING_SERVICE, "app_key", app_key)
             keyring.set_password(DROPBOX_KEYRING_SERVICE, "app_secret", app_secret)
@@ -126,18 +219,19 @@ class DropboxAuthManager:
 
     def reset(self):
         """Clear stored tokens"""
-        try:
-            keyring.delete_password(DROPBOX_KEYRING_SERVICE, "app_key")
-            keyring.delete_password(DROPBOX_KEYRING_SERVICE, "app_secret") 
-            keyring.delete_password(DROPBOX_KEYRING_SERVICE, "refresh_token")
-            
-            # Clear instance variables
-            self.app_key = None
-            self.app_secret = None
-            self.refresh_token = None
-        except KeyringError:
-            # If passwords don't exist, that's fine
-            pass
+        if self.keyring_available:
+            try:
+                keyring.delete_password(DROPBOX_KEYRING_SERVICE, "app_key")
+                keyring.delete_password(DROPBOX_KEYRING_SERVICE, "app_secret") 
+                keyring.delete_password(DROPBOX_KEYRING_SERVICE, "refresh_token")
+            except KeyringError:
+                # If passwords don't exist, that's fine
+                pass
+        
+        # Clear instance variables regardless of keyring availability
+        self.app_key = None
+        self.app_secret = None
+        self.refresh_token = None
 
     def get_oauth_url(self, redirect_uri=None, state=None):
         """Generate OAuth URL for initial authorization"""
