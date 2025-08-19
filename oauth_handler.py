@@ -373,6 +373,9 @@ def create_display_only_success_page(session_id, app_key, app_secret, refresh_to
 
 def get_server_base_url(request=None):
     """Dynamically detect the server base URL for OAuth callbacks"""
+    import os
+    import socket
+    
     try:
         if request:
             # Try to get from the incoming request
@@ -389,13 +392,12 @@ def get_server_base_url(request=None):
                 port = getattr(PromptServer.instance, 'port', 8188)
                 
                 # Try to detect if we're on RunPod or similar cloud service
-                import socket
                 hostname = socket.gethostname()
+                print(f"[OAuthHandler] Detected hostname: {hostname}")
                 
                 # Check for RunPod-specific hostname patterns
                 if 'runpod' in hostname.lower() or hostname.endswith('.runpod.net'):
                     # For RunPod, try to get the public URL
-                    import os
                     runpod_public_ip = os.getenv('RUNPOD_PUBLIC_IP')
                     if runpod_public_ip:
                         base_url = f"https://{runpod_public_ip}:{port}"
@@ -416,6 +418,8 @@ def get_server_base_url(request=None):
             
     except Exception as e:
         print(f"[OAuthHandler] Error detecting server URL: {e}")
+        import traceback
+        traceback.print_exc()
     
     # Final fallback
     base_url = "http://localhost:8188"
