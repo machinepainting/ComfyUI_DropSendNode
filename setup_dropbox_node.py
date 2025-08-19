@@ -239,12 +239,14 @@ class DropboxSetupNode:
                     # Automatic OAuth flow with callback
                     session_id = str(uuid.uuid4())
                     base_url = get_server_base_url()
+                    print(f"[DropboxSetup] Detected base URL: {base_url}")
                     callback_url = f"{base_url}/oauth/dropbox/callback"
+                    print(f"[DropboxSetup] Using callback URL: {callback_url}")
                     oauth_url = auth_temp.get_oauth_url(redirect_uri=callback_url, state=session_id)
                     
                     # Set up OAuth session for callback handling
                     oauth_handler = OAuthCallbackHandler()
-                    oauth_handler.start_oauth_session(session_id, app_key_clean, app_secret_clean, storage_method=storage_method, dropbox_folder=dropbox_dest_folder)
+                    oauth_handler.start_oauth_session(session_id, app_key_clean, app_secret_clean, storage_method=storage_method, dropbox_folder=dropbox_dest_folder, original_redirect_uri=callback_url)
                     
                     try:
                         print(f"[DropboxSetup] Setting up automatic OAuth popup...")
