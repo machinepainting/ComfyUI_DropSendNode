@@ -14,7 +14,7 @@ class OAuthCallbackHandler:
         self.app_secret = None
         self.completion_callback = None
     
-    def start_oauth_session(self, session_id, app_key, app_secret, completion_callback=None, storage_method="keyring", dropbox_folder="/Apps/ComfyUI_Output_Files"):
+    def start_oauth_session(self, session_id, app_key, app_secret, completion_callback=None, storage_method="keyring", dropbox_folder="/Apps/ComfyUI_Output_Files", original_redirect_uri=None):
         """Start a new OAuth session and store the credentials for callback processing"""
         print(f"[OAuthHandler] Starting OAuth session: {session_id}")
         
@@ -32,6 +32,7 @@ class OAuthCallbackHandler:
             'completion_callback': completion_callback,
             'storage_method': storage_method,
             'dropbox_folder': dropbox_folder,
+            'original_redirect_uri': original_redirect_uri,  # Store the original redirect URI
             'handler': self
         }
         
@@ -463,9 +464,17 @@ async def handle_oauth_callback(request):
             session_data = pending_oauth_sessions[session_id]
             handler = session_data['handler']
             
-            # Process the callback with the dynamic redirect URI
-            base_url = get_server_base_url(request)
-            callback_url = f"{base_url}/oauth/dropbox/callback"
+            # Use the original redirect URI that was used for authorization (not the detected one)
+            original_callback_url = session_data.get('original_redirect_uri')
+            if original_callback_url:
+                print(f"[OAuthCallback] Using stored redirect URI: {original_callback_url}")
+                callback_url = original_callback_url
+            else:
+                # Fallback to dynamic detection
+                base_url = get_server_base_url(request)
+                callback_url = f"{base_url}/oauth/dropbox/callback"
+                print(f"[OAuthCallback] Using detected redirect URI: {callback_url}")
+                
             success, message = await handler.process_callback(auth_code, redirect_uri=callback_url)
             
             # Clean up the session

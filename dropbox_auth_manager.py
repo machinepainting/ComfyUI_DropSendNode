@@ -71,8 +71,9 @@ def setup_keyring_backend():
                     print(f"[DropboxAuthManager] File keyring also failed: {file_error}")
                     return False
                     
-        except ImportError:
-            print("[DropboxAuthManager] keyrings.alt not available - install with: pip install keyrings.alt")
+        except ImportError as e:
+            print(f"[DropboxAuthManager] keyrings.alt not available: {e}")
+            print("[DropboxAuthManager] Install with: pip install keyrings.alt")
             return False
             
     except Exception as e:
