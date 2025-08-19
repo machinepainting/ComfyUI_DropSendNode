@@ -351,16 +351,18 @@ DROPBOX_FOLDER={dropbox_dest_folder}
             
             # For display_only, ensure credentials are prominently shown in console
             if storage_method == "display_only":
-                print("\n" + "="*60)
-                print("🔥 DROPBOX CREDENTIALS READY FOR PRODUCTION 🔥")
-                print("="*60)
+                print("\n" + "="*80)
+                print("🔥 DROPBOX CREDENTIALS READY FOR PRODUCTION - COPY FROM CONSOLE 🔥")
+                print("="*80)
                 print(f"DROPBOX_APP_KEY={app_key_clean}")
                 print(f"DROPBOX_APP_SECRET={app_secret_clean}")
                 print(f"DROPBOX_REFRESH_TOKEN={refresh_token}")
                 print(f"DROPBOX_FOLDER={dropbox_dest_folder}")
-                print("="*60)
-                print("📋 Copy these to your environment variables!")
-                print("="*60 + "\n")
+                print("="*80)
+                print("📋 Copy the lines above to your environment variables!")
+                print("🚀 Perfect for RunPod, Docker, and production environments!")
+                print("💡 Note: ComfyUI won't auto-refresh - refresh manually after copying!")
+                print("="*80 + "\n")
             
             # Use ComfyUI's dynamic return format for better UI integration
             return {
