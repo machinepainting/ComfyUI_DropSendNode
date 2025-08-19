@@ -1,6 +1,6 @@
 # RunPod OAuth Setup Guide
 
-## 🚀 Quick Setup for RunPod
+## Quick Setup for RunPod
 
 The DropSend node now automatically detects RunPod environments, but for OAuth to work properly, you may need to configure your public URL.
 
@@ -24,11 +24,6 @@ export PUBLIC_URL="https://your-runpod-id.runpod.net:8188"
 #### Method B: Set COMFYUI_PUBLIC_URL Environment Variable
 ```bash
 export COMFYUI_PUBLIC_URL="https://your-runpod-id.runpod.net:8188"
-```
-
-#### Method C: Set RUNPOD_PUBLIC_IP (if available)
-```bash
-export RUNPOD_PUBLIC_IP="your-runpod-id.runpod.net"
 ```
 
 ### How to Find Your RunPod URL
