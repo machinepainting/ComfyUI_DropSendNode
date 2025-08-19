@@ -18,6 +18,10 @@ class DropboxSetupNode:
             auth_manager = DropboxAuthManager()
             is_connected = auth_manager.is_connected()
             
+            # If keyring is not available, we know keyring storage won't work
+            if not auth_manager.keyring_available:
+                print(f"[DropboxSetup] Keyring not available in this environment")
+            
             # Also check for .env file credentials
             if not is_connected:
                 node_dir = os.path.dirname(__file__)
@@ -80,9 +84,17 @@ class DropboxSetupNode:
                 "label": "Automatic OAuth (no manual auth code needed)",
                 "default": True
             })
-            inputs["optional"]["storage_method"] = (["keyring", "env_file", "display_only"], {
+            # Smart default based on keyring availability
+            if auth_manager.keyring_available:
+                default_storage = "keyring"
+                storage_options = ["keyring", "env_file", "display_only"]
+            else:
+                default_storage = "display_only"  # Better for RunPod/Docker
+                storage_options = ["display_only", "env_file", "keyring"]
+            
+            inputs["optional"]["storage_method"] = (storage_options, {
                 "label": "Credential Storage Method",
-                "default": "keyring"
+                "default": default_storage
             })
         
         return inputs
@@ -284,8 +296,14 @@ class DropboxSetupNode:
             # Handle different storage methods
             if storage_method == "keyring":
                 # Store in system keyring (original behavior)
-                auth_manager_setup.store_tokens(app_key_clean, app_secret_clean, refresh_token)
-                message = "✅ Dropbox connected successfully! Credentials stored securely in system keyring."
+                try:
+                    auth_manager_setup.store_tokens(app_key_clean, app_secret_clean, refresh_token)
+                    message = "✅ Dropbox connected successfully! Credentials stored securely in system keyring."
+                except RuntimeError as e:
+                    if "Keyring not available" in str(e):
+                        message = f"❌ All keyring backends failed in this environment.\n\n💡 Please use 'env_file' or 'display_only' storage method instead.\n\n🔧 To enable file-based keyring, ensure 'keyrings.alt' is installed.\n\nTechnical details: {e}"
+                    else:
+                        raise e
                 
             elif storage_method == "env_file":
                 # Store in .env file
