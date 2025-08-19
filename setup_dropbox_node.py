@@ -3,6 +3,7 @@
 import os
 import requests
 from dotenv import load_dotenv, dotenv_values
+from .runpod_utils import get_redirect_uri
 
 class DropboxSetupNode:
     @classmethod
@@ -49,7 +50,8 @@ class DropboxSetupNode:
             "code": auth_code,
             "grant_type": "authorization_code",
             "client_id": app_key,
-            "client_secret": app_secret
+            "client_secret": app_secret,
+            "redirect_uri": get_redirect_uri()
         }
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
