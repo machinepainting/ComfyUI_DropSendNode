@@ -43,16 +43,14 @@ class DropboxSetupNode:
 
     @classmethod
     def INPUT_TYPES(cls):
-        # Check if credentials are already stored WITHOUT loading from keyring (non-blocking)
+        # Check if credentials are already stored (non-blocking)
         try:
-            print(f"[DropboxSetup] INPUT_TYPES: Checking for credentials (non-blocking)...")
+            print(f"[DropboxSetup] INPUT_TYPES: Checking for credentials...")
             is_connected = cls._check_credentials_non_blocking()
-            keyring_available = True  # Assume available for UI defaults
-            print(f"[DropboxSetup] INPUT_TYPES check - is_connected: {is_connected} (no keyring access)")
+            print(f"[DropboxSetup] INPUT_TYPES check - is_connected: {is_connected}")
         except Exception as e:
             print(f"[DropboxSetup] INPUT_TYPES error: {e}")
             is_connected = False
-            keyring_available = True
         
         # Base inputs that are always shown
         inputs = {
@@ -103,16 +101,16 @@ class DropboxSetupNode:
             print(f"  reconnect: {reconnect}")
             print(f"  storage_method: {storage_method}")
             
-            # Initialize auth manager (no keyring access yet)
+            # Initialize auth manager
             auth_manager = DropboxAuthManager()
-            print(f"[DropboxSetup] Auth manager initialized (keyring access deferred)")
+            print(f"[DropboxSetup] Auth manager initialized")
             
             # Handle reconnect/reset request
             if reconnect:
                 print("[DropboxSetup] Reconnect requested - clearing all credentials")
                 
-                # Skip token revocation to avoid keyring access - just clear everything
-                print("[DropboxSetup] Skipping token revocation to avoid keyring prompts")
+                # Clear all credentials (skip token revocation to avoid delays)
+                print("[DropboxSetup] Clearing all stored credentials")
                 auth_manager.reset(revoke_token=False)
                 
                 # Manually clear all credential files
@@ -137,14 +135,14 @@ class DropboxSetupNode:
                     message_data = {
                         "type": "dropbox_reconnect_complete",
                         "success": True,
-                        "message": "🔄 All credentials cleared - ComfyUI will refresh to show auth fields"
+                        "message": "🔄 Credentials cleared - ComfyUI will refresh to show auth fields"
                     }
                     PromptServer.instance.send_sync("dropbox_reconnect_complete", message_data)
                     print(f"[DropboxSetup] Sent WebSocket notification for reconnect completion")
                 except Exception as e:
                     print(f"[DropboxSetup] Warning: Could not send WebSocket notification: {e}")
                 
-                message = "🔄 Dropbox credentials cleared from all storage locations. ComfyUI will refresh to show auth fields..."
+                message = "🔄 Dropbox credentials cleared. ComfyUI will refresh to show auth fields..."
                 print(f"[DropboxSetup] {message}")
                 return {
                     "ui": {"text": [message]},
