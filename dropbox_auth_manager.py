@@ -75,8 +75,9 @@ class DropboxAuthManager:
         self.refresh_token = None
         
         # Try to load from keyring only if no credentials provided
+        # Skip during initialization to avoid blocking startup - will load lazily when needed
         if app_key is None or app_secret is None:
-            self._try_load_from_keyring()
+            pass  # Load lazily in is_connected() or when actually needed
     
     def _ensure_keyring_setup(self):
         """Set up keyring backend only when needed (lazy initialization)"""
@@ -89,17 +90,31 @@ class DropboxAuthManager:
         """Try to load credentials from keyring, but don't block if unavailable"""
         try:
             if self._ensure_keyring_setup():
+                original_app_key = self.app_key
+                original_app_secret = self.app_secret
+                original_refresh_token = self.refresh_token
+                
                 if self.app_key is None:
                     self.app_key = keyring.get_password(DROPBOX_KEYRING_SERVICE, "app_key")
                 if self.app_secret is None:
                     self.app_secret = keyring.get_password(DROPBOX_KEYRING_SERVICE, "app_secret")
                 if self.refresh_token is None:
                     self.refresh_token = keyring.get_password(DROPBOX_KEYRING_SERVICE, "refresh_token")
+                
+                # Debug: Show what was loaded
+                print(f"[DropboxAuthManager] Keyring load results:")
+                print(f"  app_key: {original_app_key} -> {self.app_key}")
+                print(f"  app_secret: {original_app_secret} -> {self.app_secret}")  
+                print(f"  refresh_token: {original_refresh_token} -> {bool(self.refresh_token)}")
+                
         except Exception as e:
             print(f"[DropboxAuthManager] Could not load from keyring: {e}")
             # Don't fail - just continue without keyring credentials
 
     def is_connected(self):
+        # Load from keyring lazily if we don't have credentials yet
+        if not (self.app_key and self.app_secret and self.refresh_token):
+            self._try_load_from_keyring()
         return bool(self.app_key and self.app_secret and self.refresh_token)
 
     def store_tokens(self, app_key, app_secret, refresh_token):
