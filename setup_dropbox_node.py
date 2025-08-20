@@ -13,42 +13,24 @@ from .oauth_handler import OAuthCallbackHandler, get_server_base_url
 class DropboxSetupNode:
     @classmethod
     def INPUT_TYPES(cls):
-        # Check if credentials are already stored (keyring or .env file)
+        # Check if credentials are already stored WITHOUT loading from keyring (non-blocking)
         try:
-            print(f"[DropboxSetup] INPUT_TYPES: Creating DropboxAuthManager for connection check...")
-            auth_manager = DropboxAuthManager()
-            is_connected = auth_manager.is_connected()
+            print(f"[DropboxSetup] INPUT_TYPES: Checking for credentials (non-blocking)...")
+            is_connected = False
+            keyring_available = True  # Assume available for UI defaults
             
-            print(f"[DropboxSetup] INPUT_TYPES connection check results:")
-            print(f"  is_connected: {is_connected}")
-            print(f"  app_key present: {bool(auth_manager.app_key)}")
-            print(f"  app_secret present: {bool(auth_manager.app_secret)}")
-            print(f"  refresh_token present: {bool(auth_manager.refresh_token)}")
+            # Check for .env file credentials first (no keyring access)
+            node_dir = os.path.dirname(__file__)
+            env_path = os.path.join(node_dir, ".env")
+            if os.path.exists(env_path):
+                from dotenv import dotenv_values
+                env_vars = dotenv_values(env_path)
+                if all([env_vars.get("DROPBOX_APP_KEY"), env_vars.get("DROPBOX_APP_SECRET"), env_vars.get("DROPBOX_REFRESH_TOKEN")]):
+                    is_connected = True
+                    print(f"[DropboxSetup] Found credentials in .env file")
             
-            # Check keyring availability for smart defaults (non-blocking)
-            keyring_available = True  # Assume available until proven otherwise
-            try:
-                # Skip keyring testing during INPUT_TYPES - just assume it works for UI defaults
-                # We'll test it properly when actually needed during setup()
-                pass
-            except Exception as e:
-                print(f"[DropboxSetup] Keyring test failed: {e}")
-                keyring_available = False
-            
-            # Also check for .env file credentials
+            # Check for display_only completion marker with environment variables
             if not is_connected:
-                node_dir = os.path.dirname(__file__)
-                env_path = os.path.join(node_dir, ".env")
-                if os.path.exists(env_path):
-                    from dotenv import dotenv_values
-                    env_vars = dotenv_values(env_path)
-                    if all([env_vars.get("DROPBOX_APP_KEY"), env_vars.get("DROPBOX_APP_SECRET"), env_vars.get("DROPBOX_REFRESH_TOKEN")]):
-                        is_connected = True
-                        print(f"[DropboxSetup] Found credentials in .env file")
-            
-            # Also check for display_only completion marker - but only if environment variables actually exist
-            if not is_connected:
-                node_dir = os.path.dirname(__file__)
                 display_marker_path = os.path.join(node_dir, ".dropbox_display_complete")
                 if os.path.exists(display_marker_path):
                     # For display_only, verify that the user actually set up environment variables
@@ -63,10 +45,21 @@ class DropboxSetupNode:
                     else:
                         print(f"[DropboxSetup] Found display_only completion marker but environment variables not set yet")
             
-            print(f"[DropboxSetup] INPUT_TYPES check - is_connected: {is_connected}")
+            # Check for keyring credentials ONLY by looking for keyring files (no keyring access)
+            if not is_connected:
+                keyring_files = [".dropbox_keyring.cfg", ".dropbox_keyring_plaintext.cfg"]
+                for keyring_file in keyring_files:
+                    keyring_path = os.path.join(node_dir, keyring_file)
+                    if os.path.exists(keyring_path) and os.path.getsize(keyring_path) > 0:
+                        is_connected = True
+                        print(f"[DropboxSetup] Found keyring credential file: {keyring_file}")
+                        break
+            
+            print(f"[DropboxSetup] INPUT_TYPES check - is_connected: {is_connected} (no keyring access)")
         except Exception as e:
             print(f"[DropboxSetup] INPUT_TYPES error: {e}")
             is_connected = False
+            keyring_available = True
         
         # Base inputs that are always shown
         inputs = {
