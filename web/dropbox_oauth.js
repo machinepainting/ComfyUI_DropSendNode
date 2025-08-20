@@ -84,8 +84,17 @@ app.registerExtension({
     },
     
     handleReconnectSuccess() {
-        // Note: Manual refresh required to see auth fields
-        console.log("[DropSendNode] Reconnect success handled - manual refresh available");
+        // For reconnect, we DO want auto-refresh to show the auth fields again
+        console.log("[DropSendNode] Reconnect success - refreshing interface to show auth fields");
+        
+        // Reset any cached state that might prevent popup detection
+        this.resetReconnectFields();
+        
+        // Refresh ComfyUI interface to show auth fields after reconnect
+        setTimeout(() => {
+            console.log("[DropSendNode] Refreshing ComfyUI interface after reconnect");
+            window.location.reload();
+        }, 1000); // Short delay for reconnect
     },
     
     // Override node execution to detect and handle OAuth URLs
@@ -101,6 +110,8 @@ app.registerExtension({
                 // Check if this execution includes OAuth URL generation
                 if (message && typeof message === 'object' && message.text && message.text[0]) {
                     const text = message.text[0];
+                    console.log("[DropSendNode] Message text content:", text.substring(0, 100) + "...");
+                    
                     if (text.includes('Dropbox OAuth Ready!')) {
                         console.log("[DropSendNode] Detected Dropbox OAuth ready message");
                         
@@ -115,8 +126,14 @@ app.registerExtension({
                                 console.log("[DropSendNode] Auto-opening OAuth popup...");
                                 window.openDropboxOAuth(oauthUrl);
                             }, 500);
+                        } else {
+                            console.log("[DropSendNode] No OAuth URL found in message");
                         }
+                    } else {
+                        console.log("[DropSendNode] Message does not contain 'Dropbox OAuth Ready!' trigger");
                     }
+                } else {
+                    console.log("[DropSendNode] Message structure not recognized for OAuth detection");
                 }
                 
                 if (originalExecuted) {
