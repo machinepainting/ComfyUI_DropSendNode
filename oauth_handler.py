@@ -557,6 +557,20 @@ async def handle_oauth_callback(request):
                                 color: #6b7280;
                                 line-height: 1.5;
                             }}
+                            .close-button {{
+                                background: #667eea;
+                                color: white;
+                                border: none;
+                                padding: 12px 24px;
+                                border-radius: 8px;
+                                font-size: 16px;
+                                cursor: pointer;
+                                margin-top: 20px;
+                                transition: background 0.2s;
+                            }}
+                            .close-button:hover {{
+                                background: #5a67d8;
+                            }}
                             .loading {{
                                 display: inline-block;
                                 width: 20px;
@@ -575,10 +589,10 @@ async def handle_oauth_callback(request):
                     </head>
                     <body>
                         <div class="container">
-                            <div class="success-icon">✅</div>
+                            <div class="success-icon">✓</div>
                             <h2>Authorization Successful!</h2>
                             <p>{message}</p>
-                            <p>This window will close automatically<span class="loading"></span></p>
+                            <button class="close-button" onclick="window.close()">Close Window</button>
                         </div>
                         <script>
                             // Notify parent window (ComfyUI) about successful OAuth
@@ -596,10 +610,8 @@ async def handle_oauth_callback(request):
                                 }}
                             }}
                             
-                            // Close this popup after showing success confirmation for env_file
-                            setTimeout(() => {{
-                                window.close();
-                            }}, 8000);
+                            // User can now manually close the window with the button
+                            console.log('Success page loaded for env_file - user can close manually');
                         </script>
                     </body></html>
                     """, content_type='text/html')
