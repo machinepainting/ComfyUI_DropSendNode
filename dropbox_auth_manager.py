@@ -264,7 +264,7 @@ class DropboxAuthManager:
         self.app_secret = None
         self.refresh_token = None
 
-    def get_oauth_url(self, redirect_uri=None, state=None):
+    def get_oauth_url(self, redirect_uri=None, state=None, force_reapprove=False):
         """Generate OAuth URL for initial authorization"""
         if not self.app_key:
             raise ValueError("App key must be set to generate OAuth URL.")
@@ -276,6 +276,10 @@ class DropboxAuthManager:
         
         if state:
             url += f"&state={state}"
+        
+        # Force reapproval to ensure user sees authorization screen
+        if force_reapprove:
+            url += "&force_reapprove=true"
             
         return url
 
