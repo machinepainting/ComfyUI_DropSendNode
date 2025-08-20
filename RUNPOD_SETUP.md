@@ -61,8 +61,7 @@ export COMFYUI_PUBLIC_URL="https://your-runpod-id.runpod.net:8188"
 2. **`display_only`**: Best for temporary pods - copy credentials to environment
 3. **`env_file`**: Good for persistent storage volumes
 
-## 💡 Tips
+## Tips
 
-- The enhanced keyring backend now works on RunPod with encrypted file storage
 - Use `display_only` for maximum flexibility in cloud environments
 - Set environment variables in your RunPod template for automatic configuration
