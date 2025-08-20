@@ -249,7 +249,6 @@ These credentials are ready to use immediately.
                 print("="*80)
                 print("Copy the lines above to your environment variables!")
                 print("Perfect for RunPod, Docker, and production environments!")
-                print("Note: Refresh ComfyUI manually after copying credentials!")
                 print("="*80 + "\n")
             
             # Use ComfyUI's dynamic return format for better UI integration
