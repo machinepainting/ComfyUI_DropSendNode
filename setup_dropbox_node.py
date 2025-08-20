@@ -15,16 +15,22 @@ class DropboxSetupNode:
     def INPUT_TYPES(cls):
         # Check if credentials are already stored (keyring or .env file)
         try:
+            print(f"[DropboxSetup] INPUT_TYPES: Creating DropboxAuthManager for connection check...")
             auth_manager = DropboxAuthManager()
             is_connected = auth_manager.is_connected()
+            
+            print(f"[DropboxSetup] INPUT_TYPES connection check results:")
+            print(f"  is_connected: {is_connected}")
+            print(f"  app_key present: {bool(auth_manager.app_key)}")
+            print(f"  app_secret present: {bool(auth_manager.app_secret)}")
+            print(f"  refresh_token present: {bool(auth_manager.refresh_token)}")
             
             # Check keyring availability for smart defaults (non-blocking)
             keyring_available = True  # Assume available until proven otherwise
             try:
-                # Only test keyring if we need to know for sure
-                keyring_available = auth_manager._ensure_keyring_setup()
-                if not keyring_available:
-                    print(f"[DropboxSetup] Keyring not available in this environment")
+                # Skip keyring testing during INPUT_TYPES - just assume it works for UI defaults
+                # We'll test it properly when actually needed during setup()
+                pass
             except Exception as e:
                 print(f"[DropboxSetup] Keyring test failed: {e}")
                 keyring_available = False
