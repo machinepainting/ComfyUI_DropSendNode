@@ -14,8 +14,10 @@ def setup_keyring_backend():
         keyring_name = current_keyring.__class__.__name__
         
         # Skip interactive/password-prompting keyrings during startup
-        if 'crypt' in keyring_name.lower() or 'gnome' in keyring_name.lower():
-            print(f"[DropboxAuthManager] Skipping interactive keyring ({keyring_name}) to avoid blocking startup")
+        if ('crypt' in keyring_name.lower() or 'gnome' in keyring_name.lower() or 
+            'encrypted' in keyring_name.lower() or 'password' in keyring_name.lower() or
+            'SecretService' in keyring_name or 'Keychain' in keyring_name):
+            print(f"[DropboxAuthManager] Skipping interactive keyring ({keyring_name}) to avoid blocking")
             raise Exception("Interactive keyring detected - using fallback")
         
         # Test non-interactively
@@ -232,6 +234,11 @@ class DropboxAuthManager:
     def reset(self, revoke_token=True):
         """Clear stored tokens and optionally revoke authorization with Dropbox"""
         
+        # Load credentials from keyring first if we don't have them in memory
+        if revoke_token and not (self.refresh_token and self.app_key and self.app_secret):
+            print("[DropboxAuthManager] Loading credentials for token revocation...")
+            self._try_load_from_keyring()
+        
         # First, revoke the token with Dropbox if requested and possible
         if revoke_token and self.refresh_token and self.app_key and self.app_secret:
             try:
@@ -264,15 +271,16 @@ class DropboxAuthManager:
                 print(f"[DropboxAuthManager] Could not revoke token with Dropbox: {e}")
                 # Continue with local cleanup even if revocation fails
         
-        # Clear from keyring
-        if self._ensure_keyring_setup():
-            try:
+        # Clear from keyring - but don't block if keyring setup fails
+        try:
+            if self._ensure_keyring_setup():
                 keyring.delete_password(DROPBOX_KEYRING_SERVICE, "app_key")
                 keyring.delete_password(DROPBOX_KEYRING_SERVICE, "app_secret") 
                 keyring.delete_password(DROPBOX_KEYRING_SERVICE, "refresh_token")
-            except KeyringError:
-                # If passwords don't exist, that's fine
-                pass
+                print("[DropboxAuthManager] Cleared credentials from keyring")
+        except Exception as e:
+            print(f"[DropboxAuthManager] Could not clear keyring (continuing): {e}")
+            # Don't fail the reset - just continue with local cleanup
         
         # Clear instance variables regardless of keyring availability
         self.app_key = None
