@@ -249,7 +249,7 @@ class DropboxSetupNode:
                     print(f"[DropboxSetup] Detected base URL: {base_url}")
                     callback_url = f"{base_url}/oauth/dropbox/callback"
                     print(f"[DropboxSetup] Using callback URL: {callback_url}")
-                    oauth_url = auth_temp.get_oauth_url(redirect_uri=callback_url, state=session_id)
+                    oauth_url = auth_temp.get_oauth_url(redirect_uri=callback_url, state=session_id, force_reapprove=True)
                     
                     # Set up OAuth session for callback handling
                     oauth_handler = OAuthCallbackHandler()
@@ -258,7 +258,7 @@ class DropboxSetupNode:
                     try:
                         print(f"[DropboxSetup] Setting up automatic OAuth popup...")
                         # We'll use JavaScript to open a proper popup window
-                        message = f"🚀 Automatic OAuth Ready!\n\n🖱️ Click the link below to open a small popup window for authorization:\n\n🔗 {oauth_url}\n\n✨ After authorization, the popup will close and ComfyUI will refresh automatically!"
+                        message = f"🚀 Automatic OAuth Ready!\n\n🖱️ Click the link below to open a small popup window for authorization:\n\n🔗 {oauth_url}\n\n✨ After authorization, the popup will close and ComfyUI will refresh automatically!\n\n🔍 DEBUG: Session {session_id[:8]}... created at {str(uuid.uuid4())[:8]}"
                         print(f"[DropboxSetup] Session ID: {session_id}")
                         print(f"[DropboxSetup] Callback URL: {callback_url}")
                         print(f"[DropboxSetup] OAuth URL ready for popup: {oauth_url}")
@@ -267,7 +267,7 @@ class DropboxSetupNode:
                         message = f"🔗 Automatic OAuth Setup:\n\nPlease visit this URL to authorize:\n{oauth_url}\n\nAfter authorization, ComfyUI will refresh automatically!"
                 else:
                     # Manual OAuth flow (original behavior)
-                    oauth_url = auth_temp.get_oauth_url()
+                    oauth_url = auth_temp.get_oauth_url(force_reapprove=True)
                     
                     try:
                         print(f"[DropboxSetup] Opening browser for manual OAuth flow...")
