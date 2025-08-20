@@ -13,80 +13,26 @@ from .oauth_handler import OAuthCallbackHandler, get_server_base_url
 
 class DropboxSetupNode:
     @classmethod
-    def _check_credentials_non_blocking(cls):
-        """Check for credentials without blocking operations"""
-        try:
-            node_dir = os.path.dirname(__file__)
-            
-            # Check .env file
-            env_path = os.path.join(node_dir, ".env")
-            if os.path.exists(env_path):
-                from dotenv import dotenv_values
-                env_vars = dotenv_values(env_path)
-                if all([env_vars.get("DROPBOX_APP_KEY"), env_vars.get("DROPBOX_APP_SECRET"), env_vars.get("DROPBOX_REFRESH_TOKEN")]):
-                    return True
-            
-            # Check display_only with environment variables
-            display_marker_path = os.path.join(node_dir, ".dropbox_display_complete")
-            if os.path.exists(display_marker_path):
-                display_only_env_set = all([
-                    os.getenv("DROPBOX_APP_KEY"),
-                    os.getenv("DROPBOX_APP_SECRET"),
-                    os.getenv("DROPBOX_REFRESH_TOKEN")
-                ])
-                if display_only_env_set:
-                    return True
-                    
-            return False
-        except Exception:
-            return False
-
-    @classmethod
     def INPUT_TYPES(cls):
-        # Check if credentials are already stored (non-blocking)
-        try:
-            print(f"[DropboxSetup] INPUT_TYPES: Checking for credentials...")
-            is_connected = cls._check_credentials_non_blocking()
-            print(f"[DropboxSetup] INPUT_TYPES check - is_connected: {is_connected}")
-        except Exception as e:
-            print(f"[DropboxSetup] INPUT_TYPES error: {e}")
-            is_connected = False
-        
-        # Base inputs that are always shown
-        inputs = {
+        # Always show all fields for simplicity - no dynamic field hiding
+        return {
             "required": {
+                "app_key":             ("STRING", {"default": "", "multiline": False}),
+                "app_secret":          ("STRING", {"default": "", "multiline": False}),
+                "auth_code":           ("STRING", {"default": "", "multiline": False}),
                 "dropbox_dest_folder": ("STRING", {"default": "/Apps/ComfyUI_Output_Files"}),
             },
-            "optional": {}
+            "optional": {
+                "reconnect": ("BOOLEAN", {
+                    "label": "Reset stored credentials",
+                    "default": False
+                }),
+                "storage_method": (["env_file", "display_only"], {
+                    "label": "Credential Storage Method",
+                    "default": "env_file"
+                })
+            }
         }
-        
-        if is_connected:
-            # If connected, only show reconnect option
-            inputs["optional"]["reconnect"] = ("BOOLEAN", {
-                "label": "Reconnect Dropbox (clears credentials & refreshes UI)",
-                "default": False
-            })
-        else:
-            # If not connected, show setup fields
-            inputs["required"].update({
-                "app_key":    ("STRING", {"default": "", "multiline": False}),
-                "app_secret": ("STRING", {"default": "", "multiline": False}),
-                "auth_code":  ("STRING", {"default": "", "multiline": False}),
-            })
-            inputs["optional"]["reconnect"] = ("BOOLEAN", {
-                "label": "Reset stored credentials",
-                "default": False
-            })
-            # Simple storage options without keyring complexity
-            default_storage = "env_file"
-            storage_options = ["env_file", "display_only"]
-            
-            inputs["optional"]["storage_method"] = (storage_options, {
-                "label": "Credential Storage Method",
-                "default": default_storage
-            })
-        
-        return inputs
 
     RETURN_TYPES = ("STRING",)
     OUTPUT_NODE = True
@@ -148,28 +94,6 @@ class DropboxSetupNode:
                     "ui": {"text": [message]},
                     "result": (message,)
                 }
-            
-            # Check if already connected using the same non-blocking method as INPUT_TYPES
-            is_connected = self._check_credentials_non_blocking()
-            if is_connected:
-                print("[DropboxSetup] Already connected - testing stored credentials")
-                # Only access keyring now when we know we need to test credentials
-                try:
-                    # This will trigger keyring access but only when we know credentials exist
-                    access_token = auth_manager.get_access_token()
-                    message = "Dropbox already connected using stored credentials. Ready to upload files."
-                    print(f"[DropboxSetup] {message}")
-                    return {
-                        "ui": {"text": [message]},
-                        "result": (message,)
-                    }
-                except Exception as e:
-                    message = f"Warning: Stored credentials found but invalid: {e}. Use 'reconnect' to reset."
-                    print(f"[DropboxSetup] {message}")
-                    return {
-                        "ui": {"text": [message]},
-                        "result": (message,)
-                    }
             
             # Check for display_only environment variables (user set them up after OAuth flow)
             display_only_env_set = all([
