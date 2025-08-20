@@ -214,8 +214,42 @@ class DropboxAuthManager:
             raise RuntimeError("Failed to retrieve access token.")
         return access_token
 
-    def reset(self):
-        """Clear stored tokens"""
+    def reset(self, revoke_token=True):
+        """Clear stored tokens and optionally revoke authorization with Dropbox"""
+        
+        # First, revoke the token with Dropbox if requested and possible
+        if revoke_token and self.refresh_token and self.app_key and self.app_secret:
+            try:
+                print("[DropboxAuthManager] Revoking token with Dropbox...")
+                
+                # Get current access token to revoke
+                access_token = self.get_access_token()
+                
+                # Revoke the token with Dropbox
+                revoke_data = {
+                    "token": access_token
+                }
+                headers = {
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json"
+                }
+                
+                response = requests.post(
+                    "https://api.dropboxapi.com/2/auth/token/revoke",
+                    headers=headers,
+                    json=revoke_data
+                )
+                
+                if response.status_code == 200:
+                    print("[DropboxAuthManager] Token successfully revoked with Dropbox")
+                else:
+                    print(f"[DropboxAuthManager] Token revocation failed: {response.status_code} - {response.text}")
+                    
+            except Exception as e:
+                print(f"[DropboxAuthManager] Could not revoke token with Dropbox: {e}")
+                # Continue with local cleanup even if revocation fails
+        
+        # Clear from keyring
         if self._ensure_keyring_setup():
             try:
                 keyring.delete_password(DROPBOX_KEYRING_SERVICE, "app_key")

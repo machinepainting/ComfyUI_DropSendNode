@@ -158,14 +158,25 @@ window.openDropboxOAuth = function(url) {
         // Focus the popup
         popup.focus();
         
-        // Monitor popup closure (optional - for fallback UI updates)
+        console.log("[DropSendNode] OAuth popup opened successfully");
+        
+        // Monitor popup closure with more detailed logging
         const checkClosed = setInterval(() => {
             if (popup.closed) {
-                console.log("[DropSendNode] OAuth popup closed by user");
+                console.log("[DropSendNode] OAuth popup closed by user or completed");
                 clearInterval(checkClosed);
                 oauthPopup = null;
             }
-        }, 1000);
+        }, 500); // Check more frequently
+        
+        // Also monitor popup URL changes (if possible)
+        try {
+            popup.addEventListener('beforeunload', () => {
+                console.log("[DropSendNode] OAuth popup is navigating");
+            });
+        } catch (e) {
+            console.log("[DropSendNode] Cannot monitor popup navigation (cross-origin)");
+        }
         
         return popup;
     } else {

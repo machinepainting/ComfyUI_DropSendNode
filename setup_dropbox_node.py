@@ -126,10 +126,10 @@ class DropboxSetupNode:
             
             # Handle reconnect/reset request
             if reconnect:
-                print("[DropboxSetup] Reconnect requested - clearing credentials")
+                print("[DropboxSetup] Reconnect requested - revoking token and clearing credentials")
                 
-                # Clear keyring credentials
-                auth_manager.reset()
+                # Clear keyring credentials AND revoke token with Dropbox
+                auth_manager.reset(revoke_token=True)
                 
                 # Also clear .env file if it exists
                 node_dir = os.path.dirname(__file__)
