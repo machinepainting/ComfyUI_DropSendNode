@@ -79,10 +79,6 @@ class DropboxSetupNode:
                 "label": "Reset stored credentials",
                 "default": False
             })
-            inputs["optional"]["auto_oauth"] = ("BOOLEAN", {
-                "label": "Automatic OAuth (no manual auth code needed)",
-                "default": True
-            })
             # Simple storage options without keyring complexity
             default_storage = "env_file"
             storage_options = ["env_file", "display_only"]
@@ -98,14 +94,13 @@ class DropboxSetupNode:
     OUTPUT_NODE = True
     FUNCTION = "setup"
 
-    def setup(self, dropbox_dest_folder, app_key=None, app_secret=None, auth_code=None, reconnect=False, auto_oauth=True, storage_method="keyring"):
+    def setup(self, dropbox_dest_folder, app_key=None, app_secret=None, auth_code=None, reconnect=False, storage_method="env_file"):
         try:
             print(f"[DropboxSetup] Called with:")
             print(f"  app_key: '{app_key}' (type: {type(app_key)}, bool: {bool(app_key)})")
             print(f"  app_secret: '{app_secret}' (type: {type(app_secret)}, bool: {bool(app_secret)})")  
             print(f"  auth_code: '{auth_code}' (type: {type(auth_code)}, bool: {bool(auth_code)})")
             print(f"  reconnect: {reconnect}")
-            print(f"  auto_oauth: {auto_oauth}")
             print(f"  storage_method: {storage_method}")
             
             # Initialize auth manager (no keyring access yet)
@@ -231,45 +226,33 @@ class DropboxSetupNode:
                 print(f"[DropboxSetup] {message}")
                 return (message,)
             
-            # If no auth code, generate OAuth URL
+            # If no auth code, generate OAuth URL for automatic popup flow
             if not auth_code_clean:
-                print(f"[DropboxSetup] No auth code provided - generating OAuth URL")
+                print(f"[DropboxSetup] No auth code provided - generating OAuth URL for popup flow")
                 auth_temp = DropboxAuthManager(app_key=app_key_clean)
                 
-                if auto_oauth:
-                    # Automatic OAuth flow with callback
-                    session_id = str(uuid.uuid4())
-                    base_url = get_server_base_url()
-                    print(f"[DropboxSetup] Detected base URL: {base_url}")
-                    callback_url = f"{base_url}/oauth/dropbox/callback"
-                    print(f"[DropboxSetup] Using callback URL: {callback_url}")
-                    oauth_url = auth_temp.get_oauth_url(redirect_uri=callback_url, state=session_id, force_reapprove=True)
-                    
-                    # Set up OAuth session for callback handling
-                    oauth_handler = OAuthCallbackHandler()
-                    oauth_handler.start_oauth_session(session_id, app_key_clean, app_secret_clean, storage_method=storage_method, dropbox_folder=dropbox_dest_folder, original_redirect_uri=callback_url)
-                    
-                    try:
-                        print(f"[DropboxSetup] Setting up automatic OAuth popup...")
-                        # We'll use JavaScript to open a proper popup window
-                        message = f"🚀 Automatic OAuth Ready!\n\n🖱️ Click the link below to open a small popup window for authorization:\n\n🔗 {oauth_url}\n\n✨ After authorization, the popup will close and ComfyUI will refresh automatically!\n\n🔍 DEBUG: Session {session_id[:8]}... created at {str(uuid.uuid4())[:8]}"
-                        print(f"[DropboxSetup] Session ID: {session_id}")
-                        print(f"[DropboxSetup] Callback URL: {callback_url}")
-                        print(f"[DropboxSetup] OAuth URL ready for popup: {oauth_url}")
-                    except Exception as e:
-                        print(f"[DropboxSetup] Error setting up OAuth: {e}")
-                        message = f"🔗 Automatic OAuth Setup:\n\nPlease visit this URL to authorize:\n{oauth_url}\n\nAfter authorization, ComfyUI will refresh automatically!"
-                else:
-                    # Manual OAuth flow (original behavior)
-                    oauth_url = auth_temp.get_oauth_url(force_reapprove=True)
-                    
-                    try:
-                        print(f"[DropboxSetup] Opening browser for manual OAuth flow...")
-                        webbrowser.open(oauth_url)
-                        message = f"🌐 Browser opened for Dropbox authorization!\n\n📋 After authorizing, paste the code in the auth_code field:\n{oauth_url}"
-                    except Exception as e:
-                        print(f"[DropboxSetup] Could not auto-open browser: {e}")
-                        message = f"📋 Visit this URL to authorize, then paste the auth code:\n{oauth_url}"
+                # Automatic OAuth flow with popup callback
+                session_id = str(uuid.uuid4())
+                base_url = get_server_base_url()
+                print(f"[DropboxSetup] Detected base URL: {base_url}")
+                callback_url = f"{base_url}/oauth/dropbox/callback"
+                print(f"[DropboxSetup] Using callback URL: {callback_url}")
+                oauth_url = auth_temp.get_oauth_url(redirect_uri=callback_url, state=session_id, force_reapprove=True)
+                
+                # Set up OAuth session for callback handling
+                oauth_handler = OAuthCallbackHandler()
+                oauth_handler.start_oauth_session(session_id, app_key_clean, app_secret_clean, storage_method=storage_method, dropbox_folder=dropbox_dest_folder, original_redirect_uri=callback_url)
+                
+                try:
+                    print(f"[DropboxSetup] Setting up automatic OAuth popup...")
+                    # JavaScript will automatically open a popup window
+                    message = f"🚀 Dropbox OAuth Ready!\n\n🖱️ Click the link below to authorize with Dropbox:\n\n🔗 {oauth_url}\n\n✨ A popup window will open, and after authorization, ComfyUI will refresh automatically!"
+                    print(f"[DropboxSetup] Session ID: {session_id}")
+                    print(f"[DropboxSetup] Callback URL: {callback_url}")
+                    print(f"[DropboxSetup] OAuth URL ready for popup: {oauth_url}")
+                except Exception as e:
+                    print(f"[DropboxSetup] Error setting up OAuth: {e}")
+                    message = f"🔗 Dropbox Authorization:\n\nPlease visit this URL to authorize:\n{oauth_url}\n\nAfter authorization, ComfyUI will refresh automatically!"
                 
                 print(f"[DropboxSetup] OAuth URL: {oauth_url}")
                 
@@ -284,15 +267,11 @@ class DropboxSetupNode:
             auth_manager_setup = DropboxAuthManager(app_key_clean, app_secret_clean)
             
             # Get the tokens without storing them yet
-            # Only pass redirect_uri if this was an automatic OAuth flow
-            if auto_oauth:
-                base_url = get_server_base_url()
-                callback_url = f"{base_url}/oauth/dropbox/callback"
-                print(f"[DropboxSetup] Using automatic OAuth with redirect_uri: {callback_url}")
-                result = auth_manager_setup.exchange_auth_code_raw(auth_code_clean, redirect_uri=callback_url)
-            else:
-                print(f"[DropboxSetup] Using manual OAuth (no redirect_uri)")
-                result = auth_manager_setup.exchange_auth_code_raw(auth_code_clean)
+            # Always use automatic OAuth flow with callback URL
+            base_url = get_server_base_url()
+            callback_url = f"{base_url}/oauth/dropbox/callback"
+            print(f"[DropboxSetup] Using automatic OAuth with redirect_uri: {callback_url}")
+            result = auth_manager_setup.exchange_auth_code_raw(auth_code_clean, redirect_uri=callback_url)
             refresh_token = result.get("refresh_token")
             
             print(f"[DropboxSetup] Auth code exchange successful")
