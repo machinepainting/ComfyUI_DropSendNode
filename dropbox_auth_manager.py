@@ -1,151 +1,76 @@
 # dropbox_auth_manager.py
 import os
 import requests
-import keyring
-from keyring.errors import KeyringError
-
-DROPBOX_KEYRING_SERVICE = "comfyui_dropbox"
-
-def setup_keyring_backend():
-    """Setup the best available keyring backend for the environment - non-blocking"""
-    try:
-        # Try to use the default backend first (non-interactive)
-        current_keyring = keyring.get_keyring()
-        keyring_name = current_keyring.__class__.__name__
-        
-        # Skip interactive/password-prompting keyrings during startup
-        if ('crypt' in keyring_name.lower() or 'gnome' in keyring_name.lower() or 
-            'encrypted' in keyring_name.lower() or 'password' in keyring_name.lower() or
-            'SecretService' in keyring_name or 'Keychain' in keyring_name):
-            print(f"[DropboxAuthManager] Skipping interactive keyring ({keyring_name}) to avoid blocking")
-            raise Exception("Interactive keyring detected - using fallback")
-        
-        # Test non-interactively with our actual service name to be more thorough
-        test_service = DROPBOX_KEYRING_SERVICE
-        test_key = "test_key_interactive_check"
-        test_value = "test_value"
-        
-        print(f"[DropboxAuthManager] Testing keyring ({keyring_name}) for interactive prompts...")
-        keyring.set_password(test_service, test_key, test_value)
-        retrieved = keyring.get_password(test_service, test_key)
-        keyring.delete_password(test_service, test_key)
-        
-        if retrieved != test_value:
-            raise Exception("Keyring test failed - retrieved value doesn't match")
-        
-        print(f"[DropboxAuthManager] Using system keyring backend: {keyring_name}")
-        return True
-        
-    except Exception as e:
-        print(f"[DropboxAuthManager] System keyring not available or interactive: {e}")
-        
-        # Force fallback to plaintext file keyring to avoid any interactive prompts
-        try:
-            import keyrings.alt.file
-            
-            # Use plaintext file keyring (non-interactive, works reliably)
-            file_keyring = keyrings.alt.file.PlaintextKeyring()
-            
-            # Set custom file location in the plugin directory  
-            import os
-            plugin_dir = os.path.dirname(os.path.abspath(__file__))
-            file_keyring.filename = os.path.join(plugin_dir, ".dropbox_keyring_plaintext.cfg")
-            
-            keyring.set_keyring(file_keyring)
-            
-            # Test the file keyring works
-            test_service = "test_file_keyring"
-            keyring.set_password(test_service, "test", "test")
-            keyring.delete_password(test_service, "test")
-            
-            print(f"[DropboxAuthManager] Using plaintext file keyring: {file_keyring.filename}")
-            print(f"[DropboxAuthManager] NOTE: Credentials stored in plugin directory (not system keyring)")
-            return True
-                    
-        except ImportError as e:
-            print(f"[DropboxAuthManager] keyrings.alt not available: {e}")
-            print("[DropboxAuthManager] Install with: pip install keyrings.alt")
-            return False
-        except Exception as file_error:
-            print(f"[DropboxAuthManager] File keyring failed: {file_error}")
-            return False
+import json
 
 class DropboxAuthManager:
     def __init__(self, app_key=None, app_secret=None):
-        # Don't set up keyring during initialization - do it lazily when needed
-        self.keyring_available = None  # Unknown until first access
-        self.keyring_tested = False
-        
         # Always store provided credentials
         self.app_key = app_key
         self.app_secret = app_secret
         self.refresh_token = None
         
-        # Try to load from keyring only if no credentials provided
-        # Skip during initialization to avoid blocking startup - will load lazily when needed
+        # Try to load from file storage if no credentials provided
         if app_key is None or app_secret is None:
-            pass  # Load lazily in is_connected() or when actually needed
+            self._try_load_from_file()
     
-    def _ensure_keyring_setup(self):
-        """Set up keyring backend only when needed (lazy initialization)"""
-        if not self.keyring_tested:
-            self.keyring_available = setup_keyring_backend()
-            self.keyring_tested = True
-        return self.keyring_available
+    def _get_credentials_file_path(self):
+        """Get path to credentials file"""
+        plugin_dir = os.path.dirname(os.path.abspath(__file__))
+        return os.path.join(plugin_dir, ".dropbox_credentials.json")
     
-    def _try_load_from_keyring(self):
-        """Try to load credentials from keyring, but don't block if unavailable"""
+    def _try_load_from_file(self):
+        """Try to load credentials from JSON file"""
         try:
-            if self._ensure_keyring_setup():
-                original_app_key = self.app_key
-                original_app_secret = self.app_secret
-                original_refresh_token = self.refresh_token
+            credentials_path = self._get_credentials_file_path()
+            if os.path.exists(credentials_path):
+                with open(credentials_path, 'r') as f:
+                    creds = json.load(f)
                 
                 if self.app_key is None:
-                    self.app_key = keyring.get_password(DROPBOX_KEYRING_SERVICE, "app_key")
+                    self.app_key = creds.get("app_key")
                 if self.app_secret is None:
-                    self.app_secret = keyring.get_password(DROPBOX_KEYRING_SERVICE, "app_secret")
+                    self.app_secret = creds.get("app_secret")
                 if self.refresh_token is None:
-                    self.refresh_token = keyring.get_password(DROPBOX_KEYRING_SERVICE, "refresh_token")
+                    self.refresh_token = creds.get("refresh_token")
                 
-                # Debug: Show what was loaded
-                print(f"[DropboxAuthManager] Keyring load results:")
-                print(f"  app_key: {original_app_key} -> {self.app_key}")
-                print(f"  app_secret: {original_app_secret} -> {self.app_secret}")  
-                print(f"  refresh_token: {original_refresh_token} -> {bool(self.refresh_token)}")
+                print(f"[DropboxAuthManager] Loaded credentials from file: {credentials_path}")
                 
         except Exception as e:
-            print(f"[DropboxAuthManager] Could not load from keyring: {e}")
-            # Don't fail - just continue without keyring credentials
+            print(f"[DropboxAuthManager] Could not load from credentials file: {e}")
 
     def is_connected(self):
-        # Load from keyring lazily if we don't have credentials yet
+        # Load from file if we don't have credentials yet
         if not (self.app_key and self.app_secret and self.refresh_token):
-            self._try_load_from_keyring()
+            self._try_load_from_file()
         return bool(self.app_key and self.app_secret and self.refresh_token)
 
     def store_tokens(self, app_key, app_secret, refresh_token):
-        """Store tokens in keyring with fallback for interactive keyrings"""
+        """Store tokens in JSON file"""
         try:
-            if not self._ensure_keyring_setup():
-                raise RuntimeError("Keyring not available. Please use 'env_file' or 'display_only' storage method instead.")
+            credentials_path = self._get_credentials_file_path()
             
-            print(f"[DropboxAuthManager] Storing tokens using keyring...")
-            keyring.set_password(DROPBOX_KEYRING_SERVICE, "app_key", app_key)
-            keyring.set_password(DROPBOX_KEYRING_SERVICE, "app_secret", app_secret)
-            keyring.set_password(DROPBOX_KEYRING_SERVICE, "refresh_token", refresh_token)
+            credentials = {
+                "app_key": app_key,
+                "app_secret": app_secret,
+                "refresh_token": refresh_token
+            }
+            
+            print(f"[DropboxAuthManager] Storing tokens in file: {credentials_path}")
+            with open(credentials_path, 'w') as f:
+                json.dump(credentials, f, indent=2)
+            
+            # Set appropriate file permissions (readable only by owner)
+            os.chmod(credentials_path, 0o600)
             
             # Update instance variables after successful storage
             self.app_key = app_key
             self.app_secret = app_secret
             self.refresh_token = refresh_token
-            print(f"[DropboxAuthManager] Tokens stored successfully in keyring")
+            print(f"[DropboxAuthManager] Tokens stored successfully in credentials file")
             
-        except KeyringError as e:
-            raise RuntimeError(f"Failed to store Dropbox tokens securely: {e}")
         except Exception as e:
-            # Handle cases where keyring setup succeeded but storage fails (e.g., interactive prompts)
-            error_msg = f"Keyring storage failed - this may be due to interactive keyring prompts: {e}"
+            error_msg = f"Failed to store Dropbox tokens: {e}"
             print(f"[DropboxAuthManager] {error_msg}")
             raise RuntimeError(error_msg)
 
@@ -249,10 +174,10 @@ class DropboxAuthManager:
         """Clear stored tokens and optionally revoke authorization with Dropbox"""
         
         if revoke_token:
-            # Load credentials from keyring first if we don't have them in memory
+            # Load credentials from file first if we don't have them in memory
             if not (self.refresh_token and self.app_key and self.app_secret):
                 print("[DropboxAuthManager] Loading credentials for token revocation...")
-                self._try_load_from_keyring()
+                self._try_load_from_file()
             
             # First, revoke the token with Dropbox if requested and possible
             if self.refresh_token and self.app_key and self.app_secret:
@@ -288,19 +213,16 @@ class DropboxAuthManager:
         else:
             print("[DropboxAuthManager] Skipping token revocation (revoke_token=False)")
         
-        # Clear from keyring - but only if keyring is already available (don't force setup)
-        if self.keyring_tested and self.keyring_available:
-            try:
-                keyring.delete_password(DROPBOX_KEYRING_SERVICE, "app_key")
-                keyring.delete_password(DROPBOX_KEYRING_SERVICE, "app_secret") 
-                keyring.delete_password(DROPBOX_KEYRING_SERVICE, "refresh_token")
-                print("[DropboxAuthManager] Cleared credentials from keyring")
-            except Exception as e:
-                print(f"[DropboxAuthManager] Could not clear keyring (continuing): {e}")
-        else:
-            print("[DropboxAuthManager] Keyring not accessed - will clear file-based keyring manually")
+        # Clear credentials file
+        try:
+            credentials_path = self._get_credentials_file_path()
+            if os.path.exists(credentials_path):
+                os.remove(credentials_path)
+                print(f"[DropboxAuthManager] Removed credentials file: {credentials_path}")
+        except Exception as e:
+            print(f"[DropboxAuthManager] Could not remove credentials file: {e}")
         
-        # Clear instance variables regardless of keyring availability
+        # Clear instance variables 
         self.app_key = None
         self.app_secret = None
         self.refresh_token = None

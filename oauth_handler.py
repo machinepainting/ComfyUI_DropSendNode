@@ -57,20 +57,7 @@ class OAuthCallbackHandler:
             
             # Handle different storage methods
             success_message = None
-            if self.storage_method == "keyring":
-                # Store in system keyring (original behavior)
-                print(f"[OAuthHandler] Attempting to store tokens in keyring...")
-                try:
-                    auth_manager.store_tokens(self.app_key, self.app_secret, refresh_token)
-                    print(f"[OAuthHandler] Tokens stored in keyring successfully")
-                    success_message = "✅ Dropbox connected successfully! Credentials stored securely in system keyring."
-                except Exception as e:
-                    print(f"[OAuthHandler] ERROR storing tokens in keyring: {e}")
-                    # Fall back to display_only if keyring fails
-                    success_message = f"⚠️ Keyring storage failed: {e}. Please use 'display_only' or 'env_file' storage method."
-                    return False, success_message
-                
-            elif self.storage_method == "env_file":
+            if self.storage_method == "env_file":
                 # Store in .env file
                 import os
                 node_dir = os.path.dirname(__file__)
@@ -123,9 +110,16 @@ DROPBOX_FOLDER={self.dropbox_folder}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
                 
             else:
-                # Fallback to keyring
-                auth_manager.store_tokens(self.app_key, self.app_secret, refresh_token)
-                success_message = "✅ Dropbox connected successfully! Credentials stored securely in system keyring."
+                # Fallback to env_file
+                import os
+                node_dir = os.path.dirname(__file__)
+                env_path = os.path.join(node_dir, ".env")
+                with open(env_path, "w") as f:
+                    f.write(f"DROPBOX_APP_KEY={self.app_key}\n")
+                    f.write(f"DROPBOX_APP_SECRET={self.app_secret}\n")
+                    f.write(f"DROPBOX_REFRESH_TOKEN={refresh_token}\n")
+                    f.write(f"DROPBOX_FOLDER={self.dropbox_folder}\n")
+                success_message = "✅ Dropbox connected successfully! Credentials saved to .env file."
             
             # Send WebSocket message to trigger ComfyUI refresh (except for display_only)
             if self.storage_method != "display_only":
