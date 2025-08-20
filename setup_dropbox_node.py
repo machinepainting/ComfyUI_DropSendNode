@@ -4,6 +4,7 @@ import os
 import requests
 import webbrowser
 import uuid
+import json
 from dotenv import load_dotenv, dotenv_values
 import urllib.parse
 from .dropbox_auth_manager import DropboxAuthManager
@@ -13,7 +14,7 @@ from .oauth_handler import OAuthCallbackHandler, get_server_base_url
 class DropboxSetupNode:
     @classmethod
     def _check_credentials_non_blocking(cls):
-        """Check for credentials without accessing keyring (non-blocking)"""
+        """Check for credentials without blocking operations"""
         try:
             node_dir = os.path.dirname(__file__)
             
@@ -34,13 +35,6 @@ class DropboxSetupNode:
                     os.getenv("DROPBOX_REFRESH_TOKEN")
                 ])
                 if display_only_env_set:
-                    return True
-            
-            # Check keyring files existence
-            keyring_files = [".dropbox_keyring.cfg", ".dropbox_keyring_plaintext.cfg"]
-            for keyring_file in keyring_files:
-                keyring_path = os.path.join(node_dir, keyring_file)
-                if os.path.exists(keyring_path) and os.path.getsize(keyring_path) > 0:
                     return True
                     
             return False
@@ -89,13 +83,9 @@ class DropboxSetupNode:
                 "label": "Automatic OAuth (no manual auth code needed)",
                 "default": True
             })
-            # Smart default based on keyring availability
-            if keyring_available:
-                default_storage = "keyring"
-                storage_options = ["keyring", "env_file", "display_only"]
-            else:
-                default_storage = "display_only"  # Better for RunPod/Docker
-                storage_options = ["display_only", "env_file", "keyring"]
+            # Simple storage options without keyring complexity
+            default_storage = "env_file"
+            storage_options = ["env_file", "display_only"]
             
             inputs["optional"]["storage_method"] = (storage_options, {
                 "label": "Credential Storage Method",
@@ -145,13 +135,6 @@ class DropboxSetupNode:
                     print(f"[DropboxSetup] Removing display_only marker: {display_marker_path}")
                     os.remove(display_marker_path)
                 
-                # Clear keyring files manually (avoiding keyring API)
-                keyring_files = [".dropbox_keyring.cfg", ".dropbox_keyring_plaintext.cfg"]
-                for keyring_file in keyring_files:
-                    keyring_path = os.path.join(node_dir, keyring_file)
-                    if os.path.exists(keyring_path):
-                        print(f"[DropboxSetup] Removing keyring file: {keyring_file}")
-                        os.remove(keyring_path)
                 
                 # Send WebSocket message to trigger ComfyUI refresh after clearing credentials
                 try:
@@ -316,18 +299,7 @@ class DropboxSetupNode:
             print(f"[DropboxSetup] Using storage method: {storage_method}")
             
             # Handle different storage methods
-            if storage_method == "keyring":
-                # Store in system keyring (original behavior)
-                try:
-                    auth_manager_setup.store_tokens(app_key_clean, app_secret_clean, refresh_token)
-                    message = "✅ Dropbox connected successfully! Credentials stored securely in system keyring."
-                except RuntimeError as e:
-                    if "Keyring not available" in str(e):
-                        message = f"❌ All keyring backends failed in this environment.\n\n💡 Please use 'env_file' or 'display_only' storage method instead.\n\n🔧 To enable file-based keyring, ensure 'keyrings.alt' is installed.\n\nTechnical details: {e}"
-                    else:
-                        raise e
-                
-            elif storage_method == "env_file":
+            if storage_method == "env_file":
                 # Store in .env file
                 node_dir = os.path.dirname(__file__)
                 env_path = os.path.join(node_dir, ".env")
@@ -365,9 +337,15 @@ DROPBOX_FOLDER={dropbox_dest_folder}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
                 
             else:
-                # Fallback to keyring
-                auth_manager_setup.store_tokens(app_key_clean, app_secret_clean, refresh_token)
-                message = "✅ Dropbox connected successfully! Credentials stored securely in system keyring."
+                # Fallback to env_file storage
+                node_dir = os.path.dirname(__file__)
+                env_path = os.path.join(node_dir, ".env")
+                with open(env_path, "w") as f:
+                    f.write(f"DROPBOX_APP_KEY={app_key_clean}\n")
+                    f.write(f"DROPBOX_APP_SECRET={app_secret_clean}\n")
+                    f.write(f"DROPBOX_REFRESH_TOKEN={refresh_token}\n")
+                    f.write(f"DROPBOX_FOLDER={dropbox_dest_folder}\n")
+                message = "✅ Dropbox connected successfully! Credentials saved to .env file."
             
             print(f"[DropboxSetup] {message}")
             
