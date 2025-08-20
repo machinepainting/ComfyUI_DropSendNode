@@ -18,9 +18,16 @@ class DropboxSetupNode:
             auth_manager = DropboxAuthManager()
             is_connected = auth_manager.is_connected()
             
-            # If keyring is not available, we know keyring storage won't work
-            if not auth_manager.keyring_available:
-                print(f"[DropboxSetup] Keyring not available in this environment")
+            # Check keyring availability for smart defaults (non-blocking)
+            keyring_available = True  # Assume available until proven otherwise
+            try:
+                # Only test keyring if we need to know for sure
+                keyring_available = auth_manager._ensure_keyring_setup()
+                if not keyring_available:
+                    print(f"[DropboxSetup] Keyring not available in this environment")
+            except Exception as e:
+                print(f"[DropboxSetup] Keyring test failed: {e}")
+                keyring_available = False
             
             # Also check for .env file credentials
             if not is_connected:
@@ -85,7 +92,7 @@ class DropboxSetupNode:
                 "default": True
             })
             # Smart default based on keyring availability
-            if auth_manager.keyring_available:
+            if keyring_available:
                 default_storage = "keyring"
                 storage_options = ["keyring", "env_file", "display_only"]
             else:
