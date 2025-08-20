@@ -330,7 +330,7 @@ def create_display_only_success_page(session_id, app_key, app_secret, refresh_to
             </div>
             
             <div class="auto-close-notice">
-                📋 Copy the credentials above, then manually refresh ComfyUI to hide the auth fields. Close this window when done.
+                Copy the credentials above, then manually refresh ComfyUI to hide the auth fields. Close this window when done.
             </div>
         </div>
         
@@ -500,7 +500,7 @@ async def handle_oauth_callback(request):
                             app_secret = session_data['app_secret'] 
                             dropbox_folder = session_data['dropbox_folder']
                             
-                            # Special success page with textarea fields for credentials
+                            # Special success page with textarea fields for credentials (stays open for copying)
                             return create_display_only_success_page(session_id, app_key, app_secret, refresh_token, dropbox_folder)
                     
                     # If we couldn't extract the refresh token, fall back to error handling
@@ -513,7 +513,7 @@ async def handle_oauth_callback(request):
                     </body></html>
                     """, content_type='text/html', status=500)
                 else:
-                    # Standard success page for other storage methods
+                    # Standard success page for env_file storage method (auto-closes quickly)
                     return web.Response(text=f"""
                     <html>
                     <head>
@@ -578,7 +578,7 @@ async def handle_oauth_callback(request):
                             <div class="success-icon">✅</div>
                             <h2>Authorization Successful!</h2>
                             <p>{message}</p>
-                            <p>ComfyUI will refresh automatically<span class="loading"></span></p>
+                            <p>This window will close automatically<span class="loading"></span></p>
                         </div>
                         <script>
                             // Notify parent window (ComfyUI) about successful OAuth
@@ -596,10 +596,10 @@ async def handle_oauth_callback(request):
                                 }}
                             }}
                             
-                            // Close this popup after a brief delay
+                            // Close this popup quickly for env_file since credentials are saved automatically
                             setTimeout(() => {{
                                 window.close();
-                            }}, 2000);
+                            }}, 1500);
                         </script>
                     </body></html>
                     """, content_type='text/html')
