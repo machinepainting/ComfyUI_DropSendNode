@@ -63,7 +63,7 @@ class DropboxSetupNode:
         if is_connected:
             # If connected, only show reconnect option
             inputs["optional"]["reconnect"] = ("BOOLEAN", {
-                "label": "🔄 Reconnect Dropbox (clears credentials & refreshes UI)",
+                "label": "Reconnect Dropbox (clears credentials & refreshes UI)",
                 "default": False
             })
         else:
@@ -135,14 +135,14 @@ class DropboxSetupNode:
                     message_data = {
                         "type": "dropbox_reconnect_complete",
                         "success": True,
-                        "message": "🔄 Credentials cleared - ComfyUI will refresh to show auth fields"
+                        "message": "Credentials cleared - ComfyUI will refresh to show auth fields"
                     }
                     PromptServer.instance.send_sync("dropbox_reconnect_complete", message_data)
                     print(f"[DropboxSetup] Sent WebSocket notification for reconnect completion")
                 except Exception as e:
                     print(f"[DropboxSetup] Warning: Could not send WebSocket notification: {e}")
                 
-                message = "🔄 Dropbox credentials cleared. ComfyUI will refresh to show auth fields..."
+                message = "Dropbox credentials cleared. ComfyUI will refresh to show auth fields..."
                 print(f"[DropboxSetup] {message}")
                 return {
                     "ui": {"text": [message]},
@@ -157,14 +157,14 @@ class DropboxSetupNode:
                 try:
                     # This will trigger keyring access but only when we know credentials exist
                     access_token = auth_manager.get_access_token()
-                    message = "✅ Dropbox already connected using stored credentials. Ready to upload files."
+                    message = "Dropbox already connected using stored credentials. Ready to upload files."
                     print(f"[DropboxSetup] {message}")
                     return {
                         "ui": {"text": [message]},
                         "result": (message,)
                     }
                 except Exception as e:
-                    message = f"⚠️ Stored credentials found but invalid: {e}. Use 'reconnect' to reset."
+                    message = f"Warning: Stored credentials found but invalid: {e}. Use 'reconnect' to reset."
                     print(f"[DropboxSetup] {message}")
                     return {
                         "ui": {"text": [message]},
@@ -182,7 +182,7 @@ class DropboxSetupNode:
                 node_dir = os.path.dirname(__file__)
                 display_marker_path = os.path.join(node_dir, ".dropbox_display_complete")
                 if os.path.exists(display_marker_path):
-                    message = "✅ Dropbox connected using environment variables (display_only setup). Ready to upload files."
+                    message = "Dropbox connected using environment variables (display_only setup). Ready to upload files."
                     print(f"[DropboxSetup] {message}")
                     return {
                         "ui": {"text": [message]},
@@ -190,7 +190,7 @@ class DropboxSetupNode:
                     }
                 else:
                     # Legacy environment variables (not from display_only)
-                    message = "✅ Dropbox credentials found in system environment variables. Ready to upload files."
+                    message = "Dropbox credentials found in system environment variables. Ready to upload files."
                     print(f"[DropboxSetup] {message}")
                     return {
                         "ui": {"text": [message]},
@@ -203,7 +203,7 @@ class DropboxSetupNode:
                 os.getenv("RUNPOD_SECRET_DROPBOX_REFRESH_TOKEN")
             ])
             if runpod_env_set:
-                return ("⚠️ Detected RunPod secrets. Using those instead of keyring.",)
+                return ("Warning: Detected RunPod secrets. Using those instead.",)
 
             # New setup flow using DropboxAuthManager
             print(f"[DropboxSetup] Starting new setup flow")
@@ -220,7 +220,7 @@ class DropboxSetupNode:
             
             # Check if we have app credentials
             if not app_key_clean or not app_secret_clean:
-                message = "❌ Missing App Key or App Secret. Please provide both."
+                message = "Error: Missing App Key or App Secret. Please provide both."
                 print(f"[DropboxSetup] {message}")
                 return (message,)
             
@@ -244,13 +244,13 @@ class DropboxSetupNode:
                 try:
                     print(f"[DropboxSetup] Setting up automatic OAuth popup...")
                     # JavaScript will automatically open a popup window
-                    message = f"🚀 Dropbox OAuth Ready!\n\n🖱️ Click the link below to authorize with Dropbox:\n\n🔗 {oauth_url}\n\n✨ A popup window will open, and after authorization, ComfyUI will refresh automatically!"
+                    message = f"Dropbox OAuth Ready!\n\nClick the link below to authorize with Dropbox:\n\n{oauth_url}\n\nA popup window will open, and after authorization, ComfyUI will refresh automatically!"
                     print(f"[DropboxSetup] Session ID: {session_id}")
                     print(f"[DropboxSetup] Callback URL: {callback_url}")
                     print(f"[DropboxSetup] OAuth URL ready for popup: {oauth_url}")
                 except Exception as e:
                     print(f"[DropboxSetup] Error setting up OAuth: {e}")
-                    message = f"🔗 Dropbox Authorization:\n\nPlease visit this URL to authorize:\n{oauth_url}\n\nAfter authorization, ComfyUI will refresh automatically!"
+                    message = f"Dropbox Authorization:\n\nPlease visit this URL to authorize:\n{oauth_url}\n\nAfter authorization, ComfyUI will refresh automatically!"
                 
                 print(f"[DropboxSetup] OAuth URL: {oauth_url}")
                 
@@ -285,7 +285,7 @@ class DropboxSetupNode:
                     f.write(f"DROPBOX_APP_SECRET={app_secret_clean}\n")
                     f.write(f"DROPBOX_REFRESH_TOKEN={refresh_token}\n")
                     f.write(f"DROPBOX_FOLDER={dropbox_dest_folder}\n")
-                message = "✅ Dropbox connected successfully! Credentials saved to .env file."
+                message = "Dropbox connected successfully! Credentials saved to .env file."
                 
             elif storage_method == "display_only":
                 # Display credentials for manual copying and create completion marker
@@ -294,11 +294,11 @@ class DropboxSetupNode:
                 with open(display_marker_path, "w") as f:
                     f.write("display_only_setup_completed")
                 
-                message = f"""✅ Dropbox Connected Successfully!
+                message = f"""Dropbox Connected Successfully!
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 ENVIRONMENT VARIABLES - Copy & Paste Ready
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+=====================================================================
+ENVIRONMENT VARIABLES - Copy & Paste Ready
+=====================================================================
 
 DROPBOX_APP_KEY={app_key_clean}
 
@@ -308,10 +308,10 @@ DROPBOX_REFRESH_TOKEN={refresh_token}
 
 DROPBOX_FOLDER={dropbox_dest_folder}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💡 Perfect for RunPod, Docker, and production environments!
-🚀 These credentials are ready to use immediately.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
+=====================================================================
+Perfect for RunPod, Docker, and production environments!
+These credentials are ready to use immediately.
+====================================================================="""
                 
             else:
                 # Fallback to env_file storage
@@ -322,23 +322,23 @@ DROPBOX_FOLDER={dropbox_dest_folder}
                     f.write(f"DROPBOX_APP_SECRET={app_secret_clean}\n")
                     f.write(f"DROPBOX_REFRESH_TOKEN={refresh_token}\n")
                     f.write(f"DROPBOX_FOLDER={dropbox_dest_folder}\n")
-                message = "✅ Dropbox connected successfully! Credentials saved to .env file."
+                message = "Dropbox connected successfully! Credentials saved to .env file."
             
             print(f"[DropboxSetup] {message}")
             
             # For display_only, ensure credentials are prominently shown in console
             if storage_method == "display_only":
                 print("\n" + "="*80)
-                print("🔥 DROPBOX CREDENTIALS READY FOR PRODUCTION - COPY FROM CONSOLE 🔥")
+                print("DROPBOX CREDENTIALS READY FOR PRODUCTION - COPY FROM CONSOLE")
                 print("="*80)
                 print(f"DROPBOX_APP_KEY={app_key_clean}")
                 print(f"DROPBOX_APP_SECRET={app_secret_clean}")
                 print(f"DROPBOX_REFRESH_TOKEN={refresh_token}")
                 print(f"DROPBOX_FOLDER={dropbox_dest_folder}")
                 print("="*80)
-                print("📋 Copy the lines above to your environment variables!")
-                print("🚀 Perfect for RunPod, Docker, and production environments!")
-                print("💡 Note: ComfyUI won't auto-refresh - refresh manually after copying!")
+                print("Copy the lines above to your environment variables!")
+                print("Perfect for RunPod, Docker, and production environments!")
+                print("Note: ComfyUI won't auto-refresh - refresh manually after copying!")
                 print("="*80 + "\n")
             
             # Use ComfyUI's dynamic return format for better UI integration
@@ -348,7 +348,7 @@ DROPBOX_FOLDER={dropbox_dest_folder}
             }
             
         except Exception as e:
-            message = f"❌ Setup failed: {e}"
+            message = f"Error: Setup failed: {e}"
             print(f"[DropboxSetup] ERROR: {message}")
             return {
                 "ui": {"text": [message]},
@@ -357,4 +357,4 @@ DROPBOX_FOLDER={dropbox_dest_folder}
 
 # Required mappings for ComfyUI
 NODE_CLASS_MAPPINGS = {"DropboxSetupNode": DropboxSetupNode}
-NODE_DISPLAY_NAME_MAPPINGS = {"DropboxSetupNode": "📦⚙️ Dropbox AutoUploader Setup"}
+NODE_DISPLAY_NAME_MAPPINGS = {"DropboxSetupNode": "Dropbox AutoUploader Setup"}
