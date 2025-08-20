@@ -52,11 +52,8 @@ app.registerExtension({
     },
     
     handleOAuthSuccess() {
-        // Close OAuth popup if it's open
-        if (oauthPopup && !oauthPopup.closed) {
-            oauthPopup.close();
-            console.log("[DropSendNode] Closed OAuth popup window");
-        }
+        // Don't auto-close popup - let user close manually after seeing success message
+        console.log("[DropSendNode] OAuth success detected - popup will stay open for user to close manually");
         
         // Reset any reconnect checkboxes before refreshing
         this.resetReconnectFields();
@@ -65,7 +62,7 @@ app.registerExtension({
         setTimeout(() => {
             console.log("[DropSendNode] Refreshing ComfyUI interface after OAuth success");
             window.location.reload();
-        }, 1500); // Small delay to ensure OAuth processing is complete
+        }, 5000); // Longer delay to allow users to see success message and use manual close button
     },
     
     resetReconnectFields() {
