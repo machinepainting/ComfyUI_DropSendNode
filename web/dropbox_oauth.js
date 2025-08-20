@@ -110,11 +110,11 @@ app.registerExtension({
                 // Check if this execution includes OAuth URL generation
                 if (message && typeof message === 'object' && message.text && message.text[0]) {
                     const text = message.text[0];
-                    if (text.includes('🚀 Automatic OAuth Ready!')) {
-                        console.log("[DropSendNode] Detected automatic OAuth ready message");
+                    if (text.includes('Dropbox OAuth Ready!')) {
+                        console.log("[DropSendNode] Detected Dropbox OAuth ready message");
                         
                         // Extract OAuth URL from the message
-                        const urlMatch = text.match(/🔗 (https:\/\/www\.dropbox\.com\/oauth2\/authorize[^\s]+)/);
+                        const urlMatch = text.match(/(https:\/\/www\.dropbox\.com\/oauth2\/authorize[^\s]+)/);
                         if (urlMatch) {
                             const oauthUrl = urlMatch[1];
                             console.log("[DropSendNode] Extracted OAuth URL:", oauthUrl);

@@ -67,7 +67,7 @@ class OAuthCallbackHandler:
                     f.write(f"DROPBOX_APP_SECRET={self.app_secret}\n")
                     f.write(f"DROPBOX_REFRESH_TOKEN={refresh_token}\n")
                     f.write(f"DROPBOX_FOLDER={self.dropbox_folder}\n")
-                success_message = "✅ Dropbox connected successfully! Credentials saved to .env file."
+                success_message = "Dropbox connected successfully! Credentials saved to .env file."
                 
             elif self.storage_method == "display_only":
                 # Display credentials for manual copying and create completion marker
@@ -79,22 +79,22 @@ class OAuthCallbackHandler:
                 
                 # Print credentials to console for easy copy/paste
                 print("\n" + "=" * 80)
-                print("🔥 DROPBOX CREDENTIALS READY FOR PRODUCTION - COPY FROM CONSOLE 🔥")
+                print("DROPBOX CREDENTIALS READY FOR PRODUCTION - COPY FROM CONSOLE")
                 print("=" * 80)
                 print(f"DROPBOX_APP_KEY={self.app_key}")
                 print(f"DROPBOX_APP_SECRET={self.app_secret}")
                 print(f"DROPBOX_REFRESH_TOKEN={refresh_token}")
                 print(f"DROPBOX_FOLDER={self.dropbox_folder}")
                 print("=" * 80)
-                print("📋 Copy the lines above to your environment variables!")
-                print("🚀 Perfect for RunPod, Docker, and production environments!")
+                print("Copy the lines above to your environment variables!")
+                print("Perfect for RunPod, Docker, and production environments!")
                 print("=" * 80 + "\n")
                 
-                success_message = f"""✅ Dropbox Connected Successfully!
+                success_message = f"""Dropbox Connected Successfully!
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 ENVIRONMENT VARIABLES - Copy & Paste Ready
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+=====================================================================
+ENVIRONMENT VARIABLES - Copy & Paste Ready
+=====================================================================
 
 DROPBOX_APP_KEY={self.app_key}
 
@@ -104,10 +104,10 @@ DROPBOX_REFRESH_TOKEN={refresh_token}
 
 DROPBOX_FOLDER={self.dropbox_folder}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💡 Perfect for RunPod, Docker, and production environments!
-🚀 These credentials are ready to use immediately.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
+=====================================================================
+Perfect for RunPod, Docker, and production environments!
+These credentials are ready to use immediately.
+====================================================================="""
                 
             else:
                 # Fallback to env_file
@@ -119,7 +119,7 @@ DROPBOX_FOLDER={self.dropbox_folder}
                     f.write(f"DROPBOX_APP_SECRET={self.app_secret}\n")
                     f.write(f"DROPBOX_REFRESH_TOKEN={refresh_token}\n")
                     f.write(f"DROPBOX_FOLDER={self.dropbox_folder}\n")
-                success_message = "✅ Dropbox connected successfully! Credentials saved to .env file."
+                success_message = "Dropbox connected successfully! Credentials saved to .env file."
             
             # Send WebSocket message to trigger ComfyUI refresh (except for display_only)
             if self.storage_method != "display_only":
@@ -145,7 +145,7 @@ DROPBOX_FOLDER={self.dropbox_folder}
             return True, success_message
             
         except Exception as e:
-            error_msg = f"❌ OAuth callback failed: {e}"
+            error_msg = f"Error: OAuth callback failed: {e}"
             print(f"[OAuthHandler] ERROR: {error_msg}")
             
             if self.completion_callback:
