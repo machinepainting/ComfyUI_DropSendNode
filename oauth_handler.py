@@ -596,10 +596,10 @@ async def handle_oauth_callback(request):
                                 }}
                             }}
                             
-                            // Close this popup quickly for env_file since credentials are saved automatically
+                            // Close this popup after showing success confirmation for env_file
                             setTimeout(() => {{
                                 window.close();
-                            }}, 1500);
+                            }}, 3000);
                         </script>
                     </body></html>
                     """, content_type='text/html')
