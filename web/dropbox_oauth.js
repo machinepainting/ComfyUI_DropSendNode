@@ -18,7 +18,7 @@ app.registerExtension({
             
             const data = event.detail;
             if (data.success) {
-                console.log("[DropSendNode] OAuth successful - refreshing interface");
+                console.log("[DropSendNode] OAuth successful");
                 this.handleOAuthSuccess();
             } else {
                 console.error("[DropSendNode] OAuth failed:", data.message);
@@ -31,7 +31,7 @@ app.registerExtension({
             
             const data = event.detail;
             if (data.success) {
-                console.log("[DropSendNode] Reconnect successful - refreshing interface");
+                console.log("[DropSendNode] Reconnect successful");
                 this.handleReconnectSuccess();
             }
         });
@@ -42,7 +42,7 @@ app.registerExtension({
                 console.log("[DropSendNode] Received OAuth completion notification via postMessage", event.data);
                 
                 if (event.data.success) {
-                    console.log("[DropSendNode] OAuth successful - refreshing interface");
+                    console.log("[DropSendNode] OAuth successful");
                     this.handleOAuthSuccess();
                 } else {
                     console.error("[DropSendNode] OAuth failed:", event.data.message);
@@ -58,8 +58,8 @@ app.registerExtension({
         // Reset any reconnect checkboxes
         this.resetReconnectFields();
         
-        // Note: No auto-refresh - user can manually refresh ComfyUI when ready
-        console.log("[DropSendNode] OAuth success handled - no auto-refresh, user can manually refresh ComfyUI");
+        // Note: Manual refresh required if user wants to update UI
+        console.log("[DropSendNode] OAuth success handled - manual refresh available");
     },
     
     resetReconnectFields() {
@@ -84,8 +84,8 @@ app.registerExtension({
     },
     
     handleReconnectSuccess() {
-        // Note: No auto-refresh - user can manually refresh ComfyUI to see auth fields
-        console.log("[DropSendNode] Reconnect success handled - no auto-refresh, user can manually refresh ComfyUI");
+        // Note: Manual refresh required to see auth fields
+        console.log("[DropSendNode] Reconnect success handled - manual refresh available");
     },
     
     // Override node execution to detect and handle OAuth URLs

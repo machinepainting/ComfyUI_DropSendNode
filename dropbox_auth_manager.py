@@ -128,10 +128,10 @@ class DropboxAuthManager:
         print(f"[DropboxAuthManager] Response status: {response.status_code}")
         print(f"[DropboxAuthManager] Response text: {response.text}")
         
-        # If we get a 400 error and we're using a redirect_uri, try without it
-        # This handles cases where the auth code was obtained without the redirect_uri
+        # If we get a 400 error and we're using a callback URL, try without it
+        # This handles cases where the auth code was obtained without a callback URL
         if response.status_code == 400 and redirect_uri:
-            print(f"[DropboxAuthManager] 400 error with redirect_uri, trying without redirect_uri...")
+            print(f"[DropboxAuthManager] 400 error with callback URL, trying without callback URL...")
             
             data_without_redirect = {
                 "code": auth_code,
@@ -140,7 +140,7 @@ class DropboxAuthManager:
                 "client_secret": self.app_secret
             }
             
-            print(f"[DropboxAuthManager] Retry request data (no redirect_uri): {data_without_redirect}")
+            print(f"[DropboxAuthManager] Retry request data (no callback URL): {data_without_redirect}")
             
             response = requests.post("https://api.dropbox.com/oauth2/token", headers=headers, data=data_without_redirect)
             
