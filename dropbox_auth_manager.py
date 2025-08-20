@@ -20,17 +20,26 @@ def setup_keyring_backend():
             print(f"[DropboxAuthManager] Skipping interactive keyring ({keyring_name}) to avoid blocking")
             raise Exception("Interactive keyring detected - using fallback")
         
-        # Test non-interactively
-        test_service = "test_keyring_availability"
-        keyring.set_password(test_service, "test", "test")
-        keyring.delete_password(test_service, "test")
+        # Test non-interactively with our actual service name to be more thorough
+        test_service = DROPBOX_KEYRING_SERVICE
+        test_key = "test_key_interactive_check"
+        test_value = "test_value"
+        
+        print(f"[DropboxAuthManager] Testing keyring ({keyring_name}) for interactive prompts...")
+        keyring.set_password(test_service, test_key, test_value)
+        retrieved = keyring.get_password(test_service, test_key)
+        keyring.delete_password(test_service, test_key)
+        
+        if retrieved != test_value:
+            raise Exception("Keyring test failed - retrieved value doesn't match")
+        
         print(f"[DropboxAuthManager] Using system keyring backend: {keyring_name}")
         return True
         
     except Exception as e:
         print(f"[DropboxAuthManager] System keyring not available or interactive: {e}")
         
-        # Try keyrings.alt file-based backends
+        # Force fallback to plaintext file keyring to avoid any interactive prompts
         try:
             import keyrings.alt.file
             
@@ -44,7 +53,7 @@ def setup_keyring_backend():
             
             keyring.set_keyring(file_keyring)
             
-            # Test it works
+            # Test the file keyring works
             test_service = "test_file_keyring"
             keyring.set_password(test_service, "test", "test")
             keyring.delete_password(test_service, "test")
@@ -60,10 +69,6 @@ def setup_keyring_backend():
         except Exception as file_error:
             print(f"[DropboxAuthManager] File keyring failed: {file_error}")
             return False
-            
-    except Exception as e:
-        print(f"[DropboxAuthManager] All keyring backends failed: {e}")
-        return False
 
 class DropboxAuthManager:
     def __init__(self, app_key=None, app_secret=None):
@@ -120,10 +125,12 @@ class DropboxAuthManager:
         return bool(self.app_key and self.app_secret and self.refresh_token)
 
     def store_tokens(self, app_key, app_secret, refresh_token):
-        if not self._ensure_keyring_setup():
-            raise RuntimeError("Keyring not available. Please use 'env_file' or 'display_only' storage method instead.")
-        
+        """Store tokens in keyring with fallback for interactive keyrings"""
         try:
+            if not self._ensure_keyring_setup():
+                raise RuntimeError("Keyring not available. Please use 'env_file' or 'display_only' storage method instead.")
+            
+            print(f"[DropboxAuthManager] Storing tokens using keyring...")
             keyring.set_password(DROPBOX_KEYRING_SERVICE, "app_key", app_key)
             keyring.set_password(DROPBOX_KEYRING_SERVICE, "app_secret", app_secret)
             keyring.set_password(DROPBOX_KEYRING_SERVICE, "refresh_token", refresh_token)
@@ -132,8 +139,15 @@ class DropboxAuthManager:
             self.app_key = app_key
             self.app_secret = app_secret
             self.refresh_token = refresh_token
+            print(f"[DropboxAuthManager] Tokens stored successfully in keyring")
+            
         except KeyringError as e:
             raise RuntimeError(f"Failed to store Dropbox tokens securely: {e}")
+        except Exception as e:
+            # Handle cases where keyring setup succeeded but storage fails (e.g., interactive prompts)
+            error_msg = f"Keyring storage failed - this may be due to interactive keyring prompts: {e}"
+            print(f"[DropboxAuthManager] {error_msg}")
+            raise RuntimeError(error_msg)
 
     def exchange_auth_code(self, auth_code, redirect_uri=None):
         if not (self.app_key and self.app_secret):
