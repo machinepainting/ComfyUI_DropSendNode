@@ -224,33 +224,22 @@ class DropboxSetupNode:
                 print(f"[DropboxSetup] {message}")
                 return (message,)
             
-            # If no auth code, generate OAuth URL for automatic popup flow
+            # If no auth code, generate OAuth URL for manual code flow
             if not auth_code_clean:
-                print(f"[DropboxSetup] No auth code provided - generating OAuth URL for popup flow")
+                print(f"[DropboxSetup] No auth code provided - generating OAuth URL for manual flow")
                 auth_temp = DropboxAuthManager(app_key=app_key_clean)
                 
-                # Automatic OAuth flow with popup callback
-                session_id = str(uuid.uuid4())
-                base_url = get_server_base_url()
-                print(f"[DropboxSetup] Detected base URL: {base_url}")
-                callback_url = f"{base_url}/oauth/dropbox/callback"
-                print(f"[DropboxSetup] Using callback URL: {callback_url}")
-                oauth_url = auth_temp.get_oauth_url(redirect_uri=callback_url, state=session_id, force_reapprove=True)
-                
-                # Set up OAuth session for callback handling
-                oauth_handler = OAuthCallbackHandler()
-                oauth_handler.start_oauth_session(session_id, app_key_clean, app_secret_clean, storage_method=storage_method, dropbox_folder=dropbox_dest_folder, original_redirect_uri=callback_url)
+                # Manual OAuth flow without redirect_uri (Dropbox will display the code)
+                oauth_url = auth_temp.get_oauth_url(force_reapprove=True)
                 
                 try:
-                    print(f"[DropboxSetup] Setting up automatic OAuth popup...")
+                    print(f"[DropboxSetup] Setting up manual OAuth popup...")
                     # JavaScript will automatically open a popup window
-                    message = f"Dropbox OAuth Ready!\n\nClick the link below to authorize with Dropbox:\n\n{oauth_url}\n\nA popup window will open, and after authorization, ComfyUI will refresh automatically!"
-                    print(f"[DropboxSetup] Session ID: {session_id}")
-                    print(f"[DropboxSetup] Callback URL: {callback_url}")
+                    message = f"Dropbox OAuth Ready!\n\nClick the link below to authorize with Dropbox:\n\n{oauth_url}\n\nA popup window will open. After authorization, Dropbox will show your auth code.\nCopy the code and paste it into the 'auth_code' field above, then run this node again."
                     print(f"[DropboxSetup] OAuth URL ready for popup: {oauth_url}")
                 except Exception as e:
                     print(f"[DropboxSetup] Error setting up OAuth: {e}")
-                    message = f"Dropbox Authorization:\n\nPlease visit this URL to authorize:\n{oauth_url}\n\nAfter authorization, ComfyUI will refresh automatically!"
+                    message = f"Dropbox Authorization:\n\nPlease visit this URL to authorize:\n{oauth_url}\n\nAfter authorization, Dropbox will display your auth code. Copy it and paste into the 'auth_code' field above."
                 
                 print(f"[DropboxSetup] OAuth URL: {oauth_url}")
                 
@@ -265,11 +254,9 @@ class DropboxSetupNode:
             auth_manager_setup = DropboxAuthManager(app_key_clean, app_secret_clean)
             
             # Get the tokens without storing them yet
-            # Always use automatic OAuth flow with callback URL
-            base_url = get_server_base_url()
-            callback_url = f"{base_url}/oauth/dropbox/callback"
-            print(f"[DropboxSetup] Using automatic OAuth with redirect_uri: {callback_url}")
-            result = auth_manager_setup.exchange_auth_code_raw(auth_code_clean, redirect_uri=callback_url)
+            # Use manual OAuth flow without redirect_uri (auth codes from manual flow)
+            print(f"[DropboxSetup] Using manual OAuth flow without redirect_uri")
+            result = auth_manager_setup.exchange_auth_code_raw(auth_code_clean)
             refresh_token = result.get("refresh_token")
             
             print(f"[DropboxSetup] Auth code exchange successful")
