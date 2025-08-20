@@ -234,53 +234,57 @@ class DropboxAuthManager:
     def reset(self, revoke_token=True):
         """Clear stored tokens and optionally revoke authorization with Dropbox"""
         
-        # Load credentials from keyring first if we don't have them in memory
-        if revoke_token and not (self.refresh_token and self.app_key and self.app_secret):
-            print("[DropboxAuthManager] Loading credentials for token revocation...")
-            self._try_load_from_keyring()
-        
-        # First, revoke the token with Dropbox if requested and possible
-        if revoke_token and self.refresh_token and self.app_key and self.app_secret:
-            try:
-                print("[DropboxAuthManager] Revoking token with Dropbox...")
-                
-                # Get current access token to revoke
-                access_token = self.get_access_token()
-                
-                # Revoke the token with Dropbox
-                revoke_data = {
-                    "token": access_token
-                }
-                headers = {
-                    "Authorization": f"Bearer {access_token}",
-                    "Content-Type": "application/json"
-                }
-                
-                response = requests.post(
-                    "https://api.dropboxapi.com/2/auth/token/revoke",
-                    headers=headers,
-                    json=revoke_data
-                )
-                
-                if response.status_code == 200:
-                    print("[DropboxAuthManager] Token successfully revoked with Dropbox")
-                else:
-                    print(f"[DropboxAuthManager] Token revocation failed: {response.status_code} - {response.text}")
+        if revoke_token:
+            # Load credentials from keyring first if we don't have them in memory
+            if not (self.refresh_token and self.app_key and self.app_secret):
+                print("[DropboxAuthManager] Loading credentials for token revocation...")
+                self._try_load_from_keyring()
+            
+            # First, revoke the token with Dropbox if requested and possible
+            if self.refresh_token and self.app_key and self.app_secret:
+                try:
+                    print("[DropboxAuthManager] Revoking token with Dropbox...")
                     
-            except Exception as e:
-                print(f"[DropboxAuthManager] Could not revoke token with Dropbox: {e}")
-                # Continue with local cleanup even if revocation fails
+                    # Get current access token to revoke
+                    access_token = self.get_access_token()
+                    
+                    # Revoke the token with Dropbox
+                    revoke_data = {
+                        "token": access_token
+                    }
+                    headers = {
+                        "Authorization": f"Bearer {access_token}",
+                        "Content-Type": "application/json"
+                    }
+                    
+                    response = requests.post(
+                        "https://api.dropboxapi.com/2/auth/token/revoke",
+                        headers=headers,
+                        json=revoke_data
+                    )
+                    
+                    if response.status_code == 200:
+                        print("[DropboxAuthManager] Token successfully revoked with Dropbox")
+                    else:
+                        print(f"[DropboxAuthManager] Token revocation failed: {response.status_code} - {response.text}")
+                        
+                except Exception as e:
+                    print(f"[DropboxAuthManager] Could not revoke token with Dropbox: {e}")
+                    # Continue with local cleanup even if revocation fails
+        else:
+            print("[DropboxAuthManager] Skipping token revocation (revoke_token=False)")
         
-        # Clear from keyring - but don't block if keyring setup fails
-        try:
-            if self._ensure_keyring_setup():
+        # Clear from keyring - but only if keyring is already available (don't force setup)
+        if self.keyring_tested and self.keyring_available:
+            try:
                 keyring.delete_password(DROPBOX_KEYRING_SERVICE, "app_key")
                 keyring.delete_password(DROPBOX_KEYRING_SERVICE, "app_secret") 
                 keyring.delete_password(DROPBOX_KEYRING_SERVICE, "refresh_token")
                 print("[DropboxAuthManager] Cleared credentials from keyring")
-        except Exception as e:
-            print(f"[DropboxAuthManager] Could not clear keyring (continuing): {e}")
-            # Don't fail the reset - just continue with local cleanup
+            except Exception as e:
+                print(f"[DropboxAuthManager] Could not clear keyring (continuing): {e}")
+        else:
+            print("[DropboxAuthManager] Keyring not accessed - will clear file-based keyring manually")
         
         # Clear instance variables regardless of keyring availability
         self.app_key = None

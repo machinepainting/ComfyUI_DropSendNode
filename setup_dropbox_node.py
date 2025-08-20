@@ -12,49 +12,48 @@ from .oauth_handler import OAuthCallbackHandler, get_server_base_url
 
 class DropboxSetupNode:
     @classmethod
-    def INPUT_TYPES(cls):
-        # Check if credentials are already stored WITHOUT loading from keyring (non-blocking)
+    def _check_credentials_non_blocking(cls):
+        """Check for credentials without accessing keyring (non-blocking)"""
         try:
-            print(f"[DropboxSetup] INPUT_TYPES: Checking for credentials (non-blocking)...")
-            is_connected = False
-            keyring_available = True  # Assume available for UI defaults
-            
-            # Check for .env file credentials first (no keyring access)
             node_dir = os.path.dirname(__file__)
+            
+            # Check .env file
             env_path = os.path.join(node_dir, ".env")
             if os.path.exists(env_path):
                 from dotenv import dotenv_values
                 env_vars = dotenv_values(env_path)
                 if all([env_vars.get("DROPBOX_APP_KEY"), env_vars.get("DROPBOX_APP_SECRET"), env_vars.get("DROPBOX_REFRESH_TOKEN")]):
-                    is_connected = True
-                    print(f"[DropboxSetup] Found credentials in .env file")
+                    return True
             
-            # Check for display_only completion marker with environment variables
-            if not is_connected:
-                display_marker_path = os.path.join(node_dir, ".dropbox_display_complete")
-                if os.path.exists(display_marker_path):
-                    # For display_only, verify that the user actually set up environment variables
-                    display_only_env_set = all([
-                        os.getenv("DROPBOX_APP_KEY"),
-                        os.getenv("DROPBOX_APP_SECRET"),
-                        os.getenv("DROPBOX_REFRESH_TOKEN")
-                    ])
-                    if display_only_env_set:
-                        is_connected = True
-                        print(f"[DropboxSetup] Found display_only completion marker with valid environment variables")
-                    else:
-                        print(f"[DropboxSetup] Found display_only completion marker but environment variables not set yet")
+            # Check display_only with environment variables
+            display_marker_path = os.path.join(node_dir, ".dropbox_display_complete")
+            if os.path.exists(display_marker_path):
+                display_only_env_set = all([
+                    os.getenv("DROPBOX_APP_KEY"),
+                    os.getenv("DROPBOX_APP_SECRET"),
+                    os.getenv("DROPBOX_REFRESH_TOKEN")
+                ])
+                if display_only_env_set:
+                    return True
             
-            # Check for keyring credentials ONLY by looking for keyring files (no keyring access)
-            if not is_connected:
-                keyring_files = [".dropbox_keyring.cfg", ".dropbox_keyring_plaintext.cfg"]
-                for keyring_file in keyring_files:
-                    keyring_path = os.path.join(node_dir, keyring_file)
-                    if os.path.exists(keyring_path) and os.path.getsize(keyring_path) > 0:
-                        is_connected = True
-                        print(f"[DropboxSetup] Found keyring credential file: {keyring_file}")
-                        break
-            
+            # Check keyring files existence
+            keyring_files = [".dropbox_keyring.cfg", ".dropbox_keyring_plaintext.cfg"]
+            for keyring_file in keyring_files:
+                keyring_path = os.path.join(node_dir, keyring_file)
+                if os.path.exists(keyring_path) and os.path.getsize(keyring_path) > 0:
+                    return True
+                    
+            return False
+        except Exception:
+            return False
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        # Check if credentials are already stored WITHOUT loading from keyring (non-blocking)
+        try:
+            print(f"[DropboxSetup] INPUT_TYPES: Checking for credentials (non-blocking)...")
+            is_connected = cls._check_credentials_non_blocking()
+            keyring_available = True  # Assume available for UI defaults
             print(f"[DropboxSetup] INPUT_TYPES check - is_connected: {is_connected} (no keyring access)")
         except Exception as e:
             print(f"[DropboxSetup] INPUT_TYPES error: {e}")
@@ -119,29 +118,40 @@ class DropboxSetupNode:
             print(f"  auto_oauth: {auto_oauth}")
             print(f"  storage_method: {storage_method}")
             
-            # Initialize auth manager
+            # Initialize auth manager (no keyring access yet)
             auth_manager = DropboxAuthManager()
-            print(f"[DropboxSetup] Auth manager initialized. Is connected: {auth_manager.is_connected()}")
+            print(f"[DropboxSetup] Auth manager initialized (keyring access deferred)")
             
             # Handle reconnect/reset request
             if reconnect:
-                print("[DropboxSetup] Reconnect requested - revoking token and clearing credentials")
+                print("[DropboxSetup] Reconnect requested - clearing all credentials")
                 
-                # Clear keyring credentials AND revoke token with Dropbox
-                auth_manager.reset(revoke_token=True)
+                # Skip token revocation to avoid keyring access - just clear everything
+                print("[DropboxSetup] Skipping token revocation to avoid keyring prompts")
+                auth_manager.reset(revoke_token=False)
                 
-                # Also clear .env file if it exists
+                # Manually clear all credential files
                 node_dir = os.path.dirname(__file__)
+                
+                # Clear .env file if it exists
                 env_path = os.path.join(node_dir, ".env")
                 if os.path.exists(env_path):
                     print(f"[DropboxSetup] Removing .env file: {env_path}")
                     os.remove(env_path)
                 
-                # Also clear display_only marker if it exists
+                # Clear display_only marker if it exists
                 display_marker_path = os.path.join(node_dir, ".dropbox_display_complete")
                 if os.path.exists(display_marker_path):
                     print(f"[DropboxSetup] Removing display_only marker: {display_marker_path}")
                     os.remove(display_marker_path)
+                
+                # Clear keyring files manually (avoiding keyring API)
+                keyring_files = [".dropbox_keyring.cfg", ".dropbox_keyring_plaintext.cfg"]
+                for keyring_file in keyring_files:
+                    keyring_path = os.path.join(node_dir, keyring_file)
+                    if os.path.exists(keyring_path):
+                        print(f"[DropboxSetup] Removing keyring file: {keyring_file}")
+                        os.remove(keyring_path)
                 
                 # Send WebSocket message to trigger ComfyUI refresh after clearing credentials
                 try:
@@ -163,13 +173,15 @@ class DropboxSetupNode:
                     "result": (message,)
                 }
             
-            # Check if already connected (keyring has credentials)
-            if auth_manager.is_connected():
+            # Check if already connected using the same non-blocking method as INPUT_TYPES
+            is_connected = self._check_credentials_non_blocking()
+            if is_connected:
                 print("[DropboxSetup] Already connected - testing stored credentials")
-                # Test the stored credentials by getting an access token
+                # Only access keyring now when we know we need to test credentials
                 try:
+                    # This will trigger keyring access but only when we know credentials exist
                     access_token = auth_manager.get_access_token()
-                    message = "✅ Dropbox already connected using stored keyring credentials. Ready to upload files."
+                    message = "✅ Dropbox already connected using stored credentials. Ready to upload files."
                     print(f"[DropboxSetup] {message}")
                     return {
                         "ui": {"text": [message]},
