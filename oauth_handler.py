@@ -46,19 +46,29 @@ class OAuthCallbackHandler:
             print(f"[OAuthHandler] Redirect URI: {redirect_uri}")
             
             # Use DropboxAuthManager to exchange the code
+            print(f"[OAuthHandler] Creating DropboxAuthManager for token exchange...")
             auth_manager = DropboxAuthManager(self.app_key, self.app_secret)
+            print(f"[OAuthHandler] Exchanging auth code for tokens...")
             result = auth_manager.exchange_auth_code_raw(auth_code, redirect_uri=redirect_uri)
             refresh_token = result.get("refresh_token")
             
-            print(f"[OAuthHandler] Auth code exchange successful")
+            print(f"[OAuthHandler] Auth code exchange successful - got refresh token: {bool(refresh_token)}")
             print(f"[OAuthHandler] Using storage method: {self.storage_method}")
             
             # Handle different storage methods
             success_message = None
             if self.storage_method == "keyring":
                 # Store in system keyring (original behavior)
-                auth_manager.store_tokens(self.app_key, self.app_secret, refresh_token)
-                success_message = "✅ Dropbox connected successfully! Credentials stored securely in system keyring."
+                print(f"[OAuthHandler] Attempting to store tokens in keyring...")
+                try:
+                    auth_manager.store_tokens(self.app_key, self.app_secret, refresh_token)
+                    print(f"[OAuthHandler] Tokens stored in keyring successfully")
+                    success_message = "✅ Dropbox connected successfully! Credentials stored securely in system keyring."
+                except Exception as e:
+                    print(f"[OAuthHandler] ERROR storing tokens in keyring: {e}")
+                    # Fall back to display_only if keyring fails
+                    success_message = f"⚠️ Keyring storage failed: {e}. Please use 'display_only' or 'env_file' storage method."
+                    return False, success_message
                 
             elif self.storage_method == "env_file":
                 # Store in .env file
