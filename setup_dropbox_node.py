@@ -178,8 +178,8 @@ class DropboxSetupNode:
             auth_manager_setup = DropboxAuthManager(app_key_clean, app_secret_clean)
             
             # Get the tokens without storing them yet
-            # Use manual OAuth flow without redirect_uri (auth codes from manual flow)
-            print(f"[DropboxSetup] Using manual OAuth flow without redirect_uri")
+            # Use manual OAuth flow (auth codes from manual copy/paste)
+            print(f"[DropboxSetup] Using manual OAuth flow")
             result = auth_manager_setup.exchange_auth_code_raw(auth_code_clean)
             refresh_token = result.get("refresh_token")
             
@@ -249,7 +249,7 @@ These credentials are ready to use immediately.
                 print("="*80)
                 print("Copy the lines above to your environment variables!")
                 print("Perfect for RunPod, Docker, and production environments!")
-                print("Note: ComfyUI won't auto-refresh - refresh manually after copying!")
+                print("Note: Refresh ComfyUI manually after copying credentials!")
                 print("="*80 + "\n")
             
             # Use ComfyUI's dynamic return format for better UI integration

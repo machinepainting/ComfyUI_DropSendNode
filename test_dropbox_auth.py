@@ -78,7 +78,7 @@ def test_auth_code_exchange():
         
         auth.exchange_auth_code(test_auth_code)
         print("✅ Auth code exchange successful")
-        print("✅ Credentials stored in keyring")
+        print("✅ Credentials stored successfully")
         return True
         
     except Exception as e:

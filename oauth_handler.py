@@ -43,7 +43,7 @@ class OAuthCallbackHandler:
         try:
             print(f"[OAuthHandler] Processing callback for session: {self.session_id}")
             print(f"[OAuthHandler] Auth code received: {auth_code[:10]}...")
-            print(f"[OAuthHandler] Redirect URI: {redirect_uri}")
+            print(f"[OAuthHandler] Processing callback for auth code exchange")
             
             # Use DropboxAuthManager to exchange the code
             print(f"[OAuthHandler] Creating DropboxAuthManager for token exchange...")
@@ -136,7 +136,7 @@ These credentials are ready to use immediately.
                 except Exception as e:
                     print(f"[OAuthHandler] Warning: Could not send WebSocket notification: {e}")
             else:
-                print(f"[OAuthHandler] Skipping WebSocket notification for display_only method - no auto-refresh")
+                print(f"[OAuthHandler] Skipping WebSocket notification for display_only method")
             
             # Call completion callback if provided
             if self.completion_callback:
@@ -330,7 +330,7 @@ def create_display_only_success_page(session_id, app_key, app_secret, refresh_to
             </div>
             
             <div class="auto-close-notice">
-                Copy the credentials above, then manually refresh ComfyUI to hide the auth fields. Close this window when done.
+                Copy the credentials above, then close this window when done.
             </div>
         </div>
         
@@ -365,12 +365,10 @@ def create_display_only_success_page(session_id, app_key, app_secret, refresh_to
                 }});
             }});
             
-            // For display_only, don't auto-refresh ComfyUI - let user copy credentials first
-            // The user can manually refresh when they're done
-            console.log('Display-only OAuth completed - not auto-refreshing ComfyUI');
+            // For display_only, let user copy credentials first
+            console.log('Display-only OAuth completed - credentials ready for copying');
             
-            // Don't auto-close for display_only - let user close manually after copying credentials
-            // The user can close this window when they're done copying
+            // User can close this window when done copying credentials
         </script>
     </body>
     </html>
