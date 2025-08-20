@@ -599,7 +599,7 @@ async def handle_oauth_callback(request):
                             // Close this popup after showing success confirmation for env_file
                             setTimeout(() => {{
                                 window.close();
-                            }}, 3000);
+                            }}, 8000);
                         </script>
                     </body></html>
                     """, content_type='text/html')
