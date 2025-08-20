@@ -58,9 +58,8 @@ app.registerExtension({
         // Reset any reconnect checkboxes
         this.resetReconnectFields();
         
-        // Refresh ComfyUI interface immediately to update node UI
-        console.log("[DropSendNode] Refreshing ComfyUI interface after OAuth success");
-        window.location.reload();
+        // Note: No auto-refresh - user can manually refresh ComfyUI when ready
+        console.log("[DropSendNode] OAuth success handled - no auto-refresh, user can manually refresh ComfyUI");
     },
     
     resetReconnectFields() {
@@ -85,11 +84,8 @@ app.registerExtension({
     },
     
     handleReconnectSuccess() {
-        // Refresh ComfyUI interface to show auth fields again
-        setTimeout(() => {
-            console.log("[DropSendNode] Refreshing ComfyUI interface after reconnect");
-            window.location.reload();
-        }, 1000); // Shorter delay for reconnect
+        // Note: No auto-refresh - user can manually refresh ComfyUI to see auth fields
+        console.log("[DropSendNode] Reconnect success handled - no auto-refresh, user can manually refresh ComfyUI");
     },
     
     // Override node execution to detect and handle OAuth URLs
