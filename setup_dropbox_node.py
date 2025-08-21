@@ -68,13 +68,6 @@ class DropboxSetupNode:
                     print(f"[DropboxSetup] Removing .env file: {env_path}")
                     os.remove(env_path)
                 
-                # Clear display_only marker if it exists
-                display_marker_path = os.path.join(node_dir, ".dropbox_display_complete")
-                if os.path.exists(display_marker_path):
-                    print(f"[DropboxSetup] Removing display_only marker: {display_marker_path}")
-                    os.remove(display_marker_path)
-                
-                
                 # Send WebSocket message to trigger ComfyUI refresh after clearing credentials
                 try:
                     from server import PromptServer
@@ -95,31 +88,19 @@ class DropboxSetupNode:
                     "result": (message,)
                 }
             
-            # Check for display_only environment variables (user set them up after OAuth flow)
-            display_only_env_set = all([
+            # Check for environment variables (from any source)
+            env_vars_set = all([
                 os.getenv("DROPBOX_APP_KEY"),
                 os.getenv("DROPBOX_APP_SECRET"), 
                 os.getenv("DROPBOX_REFRESH_TOKEN")
             ])
-            if display_only_env_set:
-                # Check if this came from display_only flow
-                node_dir = os.path.dirname(__file__)
-                display_marker_path = os.path.join(node_dir, ".dropbox_display_complete")
-                if os.path.exists(display_marker_path):
-                    message = "Dropbox connected using environment variables (display_only setup). Ready to upload files."
-                    print(f"[DropboxSetup] {message}")
-                    return {
-                        "ui": {"text": [message]},
-                        "result": (message,)
-                    }
-                else:
-                    # Legacy environment variables (not from display_only)
-                    message = "Dropbox credentials found in system environment variables. Ready to upload files."
-                    print(f"[DropboxSetup] {message}")
-                    return {
-                        "ui": {"text": [message]},
-                        "result": (message,)
-                    }
+            if env_vars_set:
+                message = "Dropbox credentials found in system environment variables. Ready to upload files."
+                print(f"[DropboxSetup] {message}")
+                return {
+                    "ui": {"text": [message]},
+                    "result": (message,)
+                }
 
             # Check for RunPod secrets
             runpod_env_set = all([
@@ -199,11 +180,7 @@ class DropboxSetupNode:
                 message = "Dropbox connected successfully! Credentials saved to .env file."
                 
             elif storage_method == "display_only":
-                # Display credentials for manual copying and create completion marker
-                node_dir = os.path.dirname(__file__)
-                display_marker_path = os.path.join(node_dir, ".dropbox_display_complete")
-                with open(display_marker_path, "w") as f:
-                    f.write("display_only_setup_completed")
+                # Display credentials for manual copying
                 
                 message = f"""Dropbox Connected Successfully!
 

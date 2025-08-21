@@ -2,5 +2,3 @@ requests
 python-dotenv
 watchdog
 dropbox
-keyring
-keyrings.alt
