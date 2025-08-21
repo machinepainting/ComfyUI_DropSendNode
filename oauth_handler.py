@@ -70,12 +70,8 @@ class OAuthCallbackHandler:
                 success_message = "Dropbox connected successfully! Credentials saved to .env file."
                 
             elif self.storage_method == "display_only":
-                # Display credentials for manual copying and create completion marker
+                # Display credentials for manual copying
                 import os
-                node_dir = os.path.dirname(__file__)
-                display_marker_path = os.path.join(node_dir, ".dropbox_display_complete")
-                with open(display_marker_path, "w") as f:
-                    f.write("display_only_setup_completed")
                 
                 # Print credentials to console for easy copy/paste
                 print("\n" + "=" * 80)
