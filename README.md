@@ -2,7 +2,7 @@
 
 This custom node package enhances ComfyUI workflows with seamless Dropbox upload functionality. It streamlines uploading ComfyUI output files to your Dropbox cloud storage. To access these files locally, configure the Dropbox app to sync them to your computer.
 
-## 📦 Features
+## 📤📦 Features
 
 - **📤📦 Dropbox AutoUploader Node**
   Automatically uploads newly created images/videos to Dropbox.
@@ -20,7 +20,7 @@ This custom node package enhances ComfyUI workflows with seamless Dropbox upload
 
 ---
 
-## 🧩📦 Installation
+## 💾📦 Installation
 
 Clone this repository into the `ComfyUI/custom_nodes/` directory:
 
@@ -109,7 +109,7 @@ Note: If you change the `dropbox_dest_folder` in the node settings, it will auto
 
 ENJOY!!
 
-## 🏃‍♂️‍➡️🫛📦 DropSend Setup Node Instructions (Local Computer Users or .env Preference)
+## 🛠️💻📦 DropSend Setup Node Instructions (Local Computer Users or .env Preference)
 (Runpod or cloud users can use a .env file for a simplified setup, but saving API keys and secrets in a .env file on the cloud is not recommended for security reasons. This is standard for local users.)
 
 9b. Open the 'DropSend Setup Node' in your ComfyUI and Paste in the following credentials:
@@ -129,7 +129,7 @@ Note: If you change the `dropbox_dest_folder` in the node settings, it will auto
 
 ENJOY!!
 
-## 🏃‍♂️‍➡️🫛📦 DropSend Setup Instructions (Manual Setup)(Advanced)
+## 🛠️📦 DropSend Setup Instructions (Manual Setup)(Advanced)
 (Only use this method if you choose to setup manually. This method is for advanced users and does not use the `DropSend Setup Node`.)
 
 1c. Follow the "Dropbox Setup Instructions" Above to build the app in Dropbox and access the `App Key` and `App Secret`. 
