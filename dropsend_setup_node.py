@@ -9,7 +9,7 @@ from dotenv import load_dotenv, dotenv_values
 import urllib.parse
 from .dropbox_auth_manager import DropboxAuthManager
 from .oauth_handler import OAuthCallbackHandler, get_server_base_url
-
+from cryptography.fernet import Fernet
 
 class DropboxSetupNode:
     @classmethod
@@ -29,7 +29,11 @@ class DropboxSetupNode:
                 }),
                 "storage_method": (["env_file", "display_only"], {
                     "label": "Credential Storage Method",
-                    "default": "env_file"
+                    "default": "display_only"
+                }),
+                "encryption_key_method": (["off", "Display Only", "save to .env"], {
+                    "label": "Encryption Key Method",
+                    "default": "Display Only"
                 })
             }
         }
@@ -38,7 +42,7 @@ class DropboxSetupNode:
     OUTPUT_NODE = True
     FUNCTION = "setup"
 
-    def setup(self, dropbox_dest_folder, app_key=None, app_secret=None, auth_code=None, reconnect=False, storage_method="env_file"):
+    def setup(self, dropbox_dest_folder, app_key=None, app_secret=None, auth_code=None, reconnect=False, storage_method="display_only", encryption_key_method="Display Only"):
         try:
             print(f"[DropboxSetup] Called with:")
             print(f"  app_key: '{app_key}' (type: {type(app_key)}, bool: {bool(app_key)})")
@@ -46,6 +50,7 @@ class DropboxSetupNode:
             print(f"  auth_code: '{auth_code}' (type: {type(auth_code)}, bool: {bool(auth_code)})")
             print(f"  reconnect: {reconnect}")
             print(f"  storage_method: {storage_method}")
+            print(f"  encryption_key_method: {encryption_key_method}")
             
             # Initialize auth manager
             auth_manager = DropboxAuthManager()
@@ -135,7 +140,7 @@ class DropboxSetupNode:
                 auth_temp = DropboxAuthManager(app_key=app_key_clean)
                 
                 # Manual OAuth flow without redirect_uri (Dropbox will display the code)
-                oauth_url = auth_temp.get_oauth_url(force_reapprove=True)
+                oauth_url = auth_temp.get_oauth_url(require_reapprove=True)
                 
                 try:
                     print(f"[DropboxSetup] Setting up manual OAuth popup...")
@@ -144,7 +149,7 @@ class DropboxSetupNode:
                     print(f"[DropboxSetup] OAuth URL ready for popup: {oauth_url}")
                 except Exception as e:
                     print(f"[DropboxSetup] Error setting up OAuth: {e}")
-                    message = f"Dropbox Authorization:\n\nPlease visit this URL to authorize:\n{oauth_url}\n\nAfter authorization, Dropbox will display your auth code. Copy it and paste into the 'auth_code' field above."
+                    message = f"Dropbox Authorization:\n\nPlease visit this URL to authorize:\n\n{oauth_url}\n\nAfter authorization, Dropbox will display your auth code. Copy it and paste into the 'auth_code' field above."
                 
                 print(f"[DropboxSetup] OAuth URL: {oauth_url}")
                 
@@ -167,66 +172,69 @@ class DropboxSetupNode:
             print(f"[DropboxSetup] Auth code exchange successful")
             print(f"[DropboxSetup] Using storage method: {storage_method}")
             
-            # Handle different storage methods
+            # Generate encryption key only if encryption_key_method is not "off"
+            encryption_key = None
+            if encryption_key_method != "off":
+                encryption_key = Fernet.generate_key().decode()
+            
+            # Prepare .env lines
+            env_lines = []
             if storage_method == "env_file":
-                # Store in .env file
+                env_lines.append(f"DROPBOX_APP_KEY={app_key_clean}")
+                env_lines.append(f"DROPBOX_APP_SECRET={app_secret_clean}")
+                env_lines.append(f"DROPBOX_REFRESH_TOKEN={refresh_token}")
+                env_lines.append(f"DROPBOX_FOLDER={dropbox_dest_folder}")
+            if encryption_key_method == "save to .env" and encryption_key:
+                env_lines.append(f"COMFYUI_ENCRYPTION_KEY={encryption_key}")
+            
+            # Write to .env if there are lines to write
+            if env_lines:
                 node_dir = os.path.dirname(__file__)
                 env_path = os.path.join(node_dir, ".env")
                 with open(env_path, "w") as f:
-                    f.write(f"DROPBOX_APP_KEY={app_key_clean}\n")
-                    f.write(f"DROPBOX_APP_SECRET={app_secret_clean}\n")
-                    f.write(f"DROPBOX_REFRESH_TOKEN={refresh_token}\n")
-                    f.write(f"DROPBOX_FOLDER={dropbox_dest_folder}\n")
+                    f.write("\n".join(env_lines) + "\n")
+            
+            # Prepare display lines
+            display_lines = []
+            if storage_method == "display_only":
+                display_lines.append(f"DROPBOX_APP_KEY={app_key_clean}")
+                display_lines.append(f"DROPBOX_APP_SECRET={app_secret_clean}")
+                display_lines.append(f"DROPBOX_REFRESH_TOKEN={refresh_token}")
+                display_lines.append(f"DROPBOX_FOLDER={dropbox_dest_folder}")
+            if encryption_key_method == "Display Only" and encryption_key:
+                display_lines.append(f"COMFYUI_ENCRYPTION_KEY={encryption_key}")
+            
+            # Build message
+            message = ""
+            if storage_method == "env_file":
                 message = "Dropbox connected successfully! Credentials saved to .env file."
-                
             elif storage_method == "display_only":
-                # Display credentials for manual copying
-                
-                message = f"""Dropbox Connected Successfully!
+                message = """Dropbox Connected Successfully!
 
 =====================================================================
 ENVIRONMENT VARIABLES - Copy & Paste Ready
 =====================================================================
 
-DROPBOX_APP_KEY={app_key_clean}
-
-DROPBOX_APP_SECRET={app_secret_clean}
-
-DROPBOX_REFRESH_TOKEN={refresh_token}
-
-DROPBOX_FOLDER={dropbox_dest_folder}
+""" + "\n".join(display_lines) + """
 
 =====================================================================
 Perfect for RunPod, Docker, and production environments!
 These credentials are ready to use immediately.
 ====================================================================="""
-                
-            else:
-                # Fallback to env_file storage
-                node_dir = os.path.dirname(__file__)
-                env_path = os.path.join(node_dir, ".env")
-                with open(env_path, "w") as f:
-                    f.write(f"DROPBOX_APP_KEY={app_key_clean}\n")
-                    f.write(f"DROPBOX_APP_SECRET={app_secret_clean}\n")
-                    f.write(f"DROPBOX_REFRESH_TOKEN={refresh_token}\n")
-                    f.write(f"DROPBOX_FOLDER={dropbox_dest_folder}\n")
-                message = "Dropbox connected successfully! Credentials saved to .env file."
-            
-            print(f"[DropboxSetup] {message}")
             
             # For display_only, ensure credentials are prominently shown in console
-            if storage_method == "display_only":
+            if display_lines:
                 print("\n" + "="*80)
                 print("DROPBOX CREDENTIALS READY FOR PRODUCTION - COPY FROM CONSOLE")
                 print("="*80)
-                print(f"DROPBOX_APP_KEY={app_key_clean}")
-                print(f"DROPBOX_APP_SECRET={app_secret_clean}")
-                print(f"DROPBOX_REFRESH_TOKEN={refresh_token}")
-                print(f"DROPBOX_FOLDER={dropbox_dest_folder}")
+                for line in display_lines:
+                    print(line)
                 print("="*80)
                 print("Copy the lines above to your environment variables!")
                 print("Perfect for RunPod, Docker, and production environments!")
                 print("="*80 + "\n")
+            
+            print(f"[DropboxSetup] {message}")
             
             # Use ComfyUI's dynamic return format for better UI integration
             return {
@@ -244,4 +252,4 @@ These credentials are ready to use immediately.
 
 # Required mappings for ComfyUI
 NODE_CLASS_MAPPINGS = {"DropboxSetupNode": DropboxSetupNode}
-NODE_DISPLAY_NAME_MAPPINGS = {"DropboxSetupNode": "Dropbox AutoUploader Setup"}
+NODE_DISPLAY_NAME_MAPPINGS = {"DropboxSetupNode": "📦⚙️ DropSend - Setup Node"}

@@ -128,7 +128,7 @@ class DropboxAuthManager:
         print(f"[DropboxAuthManager] Response status: {response.status_code}")
         print(f"[DropboxAuthManager] Response text: {response.text}")
         
-        # If we get a 400 error and we're using a callback URL, try without it
+        # If 400 error, try without it.
         # This handles cases where the auth code was obtained without a callback URL
         if response.status_code == 400 and redirect_uri:
             print(f"[DropboxAuthManager] 400 error with callback URL, trying without callback URL...")
