@@ -1,9 +1,16 @@
 #!/bin/bash
 
-# DropSend Encryption Script for macOS
-# Encrypts image files using a key stored in macOS Keychain
+# ComfyUI Encryption Scripts - Encryption (macOS)
+# Works with both DropSend and DriveSend nodes
+# Encrypts image/video files using a key stored in macOS Keychain
+#
+# NOTE: This script is for LOCAL USE ONLY - for encrypting files on your local machine
+# outside of ComfyUI. The nodes handle encryption automatically during upload.
 
-echo "=== DropSend File Encryption (macOS) ==="
+echo "=== ComfyUI File Encryption (macOS) ==="
+echo ""
+echo "NOTE: This script is for LOCAL USE ONLY."
+echo "The ComfyUI nodes handle encryption automatically during upload."
 echo ""
 echo "Drag in the folder of files to encrypt, or type the path:"
 
@@ -30,10 +37,17 @@ else
     RECURSIVE="false"
 fi
 
-# Retrieve key from Keychain
+# Retrieve key from Keychain (try multiple names for compatibility)
 echo ""
 echo "Retrieving key from Keychain..."
-KEY=$(security find-generic-password -s "DropSend_Encryption_Key" -a "DropSend" -w 2>/dev/null)
+KEY=$(security find-generic-password -s "ComfyUI_Encryption_Key" -a "ComfyUI" -w 2>/dev/null)
+if [ -z "$KEY" ]; then
+    KEY=$(security find-generic-password -s "DropSend_Encryption_Key" -a "DropSend" -w 2>/dev/null)
+fi
+if [ -z "$KEY" ]; then
+    KEY=$(security find-generic-password -s "DriveSend_Encryption_Key" -a "DriveSend" -w 2>/dev/null)
+fi
+
 if [ -z "$KEY" ]; then
     echo ""
     echo "Error: Failed to retrieve key from Keychain."
@@ -41,8 +55,8 @@ if [ -z "$KEY" ]; then
     echo "To store your encryption key in Keychain:"
     echo "  1. Open Keychain Access (search in Spotlight)"
     echo "  2. Click File > New Password Item"
-    echo "  3. Set Keychain Item Name: DropSend_Encryption_Key"
-    echo "  4. Set Account Name: DropSend"
+    echo "  3. Set Keychain Item Name: ComfyUI_Encryption_Key"
+    echo "  4. Set Account Name: ComfyUI"
     echo "  5. Set Password: [your encryption key]"
     echo "  6. Click Add"
     echo ""
@@ -57,7 +71,7 @@ import os
 import sys
 from cryptography.fernet import Fernet
 
-# Supported file extensions (matching DropSend node)
+# Supported file extensions
 SUPPORTED_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.webp', '.gif', '.mp4', '.avi', '.mov')
 
 def encrypt_file(input_path, output_path, key):

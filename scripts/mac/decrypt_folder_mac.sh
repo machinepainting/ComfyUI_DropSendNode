@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# DropSend Decryption Script for macOS
+# ComfyUI Encryption Scripts - Decryption (macOS)
+# Works with both DropSend and DriveSend nodes
 # Decrypts .enc files using a key stored in macOS Keychain
 
-echo "=== DropSend File Decryption (macOS) ==="
+echo "=== ComfyUI File Decryption (macOS) ==="
 echo ""
 echo "Drag in the folder of files to decrypt, or type the path:"
 
@@ -30,10 +31,19 @@ else
     RECURSIVE="false"
 fi
 
-# Retrieve key from Keychain
+# Retrieve key from Keychain (try multiple names for compatibility)
 echo ""
 echo "Retrieving key from Keychain..."
-KEY=$(security find-generic-password -s "DropSend_Encryption_Key" -a "DropSend" -w 2>/dev/null)
+KEY=$(security find-generic-password -s "ComfyUI_Encryption_Key" -a "ComfyUI" -w 2>/dev/null)
+if [ -z "$KEY" ]; then
+    # Fallback to legacy DropSend naming
+    KEY=$(security find-generic-password -s "DropSend_Encryption_Key" -a "DropSend" -w 2>/dev/null)
+fi
+if [ -z "$KEY" ]; then
+    # Fallback to legacy DriveSend naming
+    KEY=$(security find-generic-password -s "DriveSend_Encryption_Key" -a "DriveSend" -w 2>/dev/null)
+fi
+
 if [ -z "$KEY" ]; then
     echo ""
     echo "Error: Failed to retrieve key from Keychain."
@@ -41,8 +51,8 @@ if [ -z "$KEY" ]; then
     echo "To store your encryption key in Keychain:"
     echo "  1. Open Keychain Access (search in Spotlight)"
     echo "  2. Click File > New Password Item"
-    echo "  3. Set Keychain Item Name: DropSend_Encryption_Key"
-    echo "  4. Set Account Name: DropSend"
+    echo "  3. Set Keychain Item Name: ComfyUI_Encryption_Key"
+    echo "  4. Set Account Name: ComfyUI"
     echo "  5. Set Password: [your encryption key]"
     echo "  6. Click Add"
     echo ""
@@ -100,14 +110,8 @@ print(f"Found {len(enc_files)} .enc file(s) to decrypt.")
 print("")
 
 for enc_path in enc_files:
-    # Remove .enc extension to get original filename
-    # Default to .png if no other extension is apparent
-    base_name = enc_path[:-4]  # Remove .enc
-    if not os.path.splitext(base_name)[1]:
-        # No extension found, default to .png
-        out_path = base_name + '.png'
-    else:
-        out_path = base_name
+    # Remove .enc extension to restore original filename
+    out_path = enc_path[:-4]  # Remove .enc
     
     if decrypt_file(enc_path, out_path, key):
         success_count += 1
