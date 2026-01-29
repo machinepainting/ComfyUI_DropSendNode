@@ -1,14 +1,16 @@
 # ComfyUI DropSend Node
 
-A ComfyUI custom node for seamless Dropbox uploads with **optional** encryption capabilities. Automatically upload your ComfyUI output files (images and videos) to Dropbox cloud storage — with or without encryption.
+Want to automatically move ypur files off the cloud to your local machine? Want to do so securely with optional encryption? Well do I have the node for you!
+
+DROPSEND NODE - A custom ComfyUI node for seamless Dropbox uploads with **optional** encryption capabilities. Automatically uploads your ComfyUI output files (images and videos) to Dropbox cloud storage — with or without encryption.
 
 ## 🔄 How It Works
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                            CLOUD (RunPod, etc.)                             │
+│                         CLOUD (RunPod, etc.)                                │
 │                                                                             │
-│   ComfyUI generates files ──→ DropSend Node ──→ Uploads to Dropbox          │
+│      ComfyUI generates files ──→ DropSend Node ──→ Uploads to Dropbox       │
 │        (png, mp4, etc.)         │                                           │
 │                                 │                                           │
 │                                 ▼                                           │
@@ -68,7 +70,7 @@ Streamlines Dropbox API access setup and encryption key management.
 - **🔐📁 Standalone Decryption Scripts (Local Use Only)**
 Decrypt `.enc` files on your local machine using the included scripts in the `/scripts/` folder.
 
-- **Local use only** — Run these on your computer after downloading/syncing encrypted files from Dropbox.
+- **Local use only** — Run these on your computer after downloading/syncing encrypted files from Dropbox (move files out of synced Dropbox local folder before decrypting, otherwise it defeats the purpose of using encryption.).
 - Cross-platform support for macOS, Windows, and Linux.
 - Restores encrypted files back to their original format (PNG, JPG, MP4, etc.).
 - Supports recursive folder processing.
@@ -466,6 +468,7 @@ If you encounter any problems on Windows or Linux, please open an issue on GitHu
 
 Contributions and pull requests are welcome!
 
+Shout-out to Adam for his contributions to this node build and additional Dropbox assistant tool, he helped make the setup easier!
 ---
 
 ## 📁 Repository Structure
