@@ -1,6 +1,6 @@
 # ComfyUI DropSend Node
 
-Want to automatically move ypur files off the cloud to your local machine? Want to do so securely with optional encryption? Well do I have the node for you!
+Want to automatically move your files off the cloud to your local machine? Want to do so securely with optional encryption? Well do I have the node for you!
 
 DROPSEND NODE - A custom ComfyUI node for seamless Dropbox uploads with **optional** encryption capabilities. Automatically uploads your ComfyUI output files (images and videos) to Dropbox cloud storage — with or without encryption.
 
