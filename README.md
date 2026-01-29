@@ -234,6 +234,8 @@ The `/scripts/` folder contains standalone scripts to decrypt files on your **lo
 
 > ⚠️ **These scripts are for LOCAL USE ONLY.** Run them on your personal computer after downloading or syncing encrypted files from Dropbox. Do not run on cloud instances.
 
+> 💡 **Universal Compatibility:** These scripts work with both DropSend (Dropbox) and DriveSend (Google Drive) nodes. They use the same encryption key (`comfyui_encryption_key`), so you only need to set up key storage once.
+
 ### What Are These Scripts For?
 
 **Decryption Scripts** — The primary scripts. Use these on your local machine to decrypt `.enc` files you've downloaded/synced from Dropbox. When encryption is enabled in the DropSend node, your files are uploaded as encrypted `.enc` files. These scripts restore them to their original format so you can view and use them.
@@ -265,12 +267,12 @@ pip install cryptography
 1. Open **Keychain Access** (search in Spotlight)
 2. Click **File > New Password Item**
 3. Fill in the fields:
-   - **Keychain Item Name:** `DropSend_Encryption_Key`
-   - **Account Name:** `DropSend`
+   - **Keychain Item Name:** `ComfyUI_Encryption_Key`
+   - **Account Name:** `ComfyUI`
    - **Password:** Paste your encryption key
 4. Click **Add**
 
-To retrieve later: Search for `DropSend_Encryption_Key` in Keychain Access, double-click, check **Show Password**, and authenticate.
+To retrieve later: Search for `ComfyUI_Encryption_Key` in Keychain Access, double-click, check **Show Password**, and authenticate.
 
 ### Running the Scripts
 
@@ -307,7 +309,7 @@ To retrieve later: Search for `DropSend_Encryption_Key` in Keychain Access, doub
 2. Go to **Advanced** tab → **Environment Variables**
 3. Under **User variables**, click **New**
 4. Set:
-   - **Variable name:** `DROPSEND_ENCRYPTION_KEY`
+   - **Variable name:** `COMFYUI_ENCRYPTION_KEY`
    - **Variable value:** Your encryption key
 5. Click **OK** to save
 6. Restart any open terminals/command prompts
@@ -337,12 +339,12 @@ To retrieve later: Search for `DropSend_Encryption_Key` in Keychain Access, doub
 
 ### Storing Your Encryption Key
 
-**Option A: Environment Variable**
+**Option A: Environment Variable (Recommended)**
 
 Add to your `~/.bashrc` or `~/.zshrc`:
 
 ```bash
-export DROPSEND_ENCRYPTION_KEY="your_encryption_key_here"
+export COMFYUI_ENCRYPTION_KEY="your_encryption_key_here"
 ```
 
 Then reload:
@@ -357,10 +359,10 @@ If you have `secret-tool` installed (comes with `libsecret-tools`):
 
 ```bash
 # Store the key
-echo -n "your_encryption_key_here" | secret-tool store --label="DropSend Encryption Key" service DropSend username DropSend
+echo -n "your_encryption_key_here" | secret-tool store --label="ComfyUI Encryption Key" service ComfyUI username ComfyUI
 
 # Retrieve the key (for verification)
-secret-tool lookup service DropSend username DropSend
+secret-tool lookup service ComfyUI username ComfyUI
 ```
 
 Install secret-tool if needed:
@@ -448,6 +450,30 @@ ENJOY!!
 
 ---
 
+## ⚠️ Important Notes
+
+### Using Both DropSend and DriveSend
+
+If you use both nodes (DropSend for Dropbox and [DriveSend](https://github.com/machinepainting/ComfyUI_DriveSendNode) for Google Drive), you only need to store your encryption key **once** using any of the methods above. The scripts check for multiple key names for backward compatibility:
+
+- `COMFYUI_ENCRYPTION_KEY` (recommended)
+- `comfyui_encryption_key`
+- `DROPSEND_ENCRYPTION_KEY` (legacy)
+- `DRIVESEND_ENCRYPTION_KEY` (legacy)
+
+The same applies to Keychain/Secret Service - the scripts will find your key regardless of which name you used.
+
+### Running Both Nodes Simultaneously
+
+If you have both DropSend and DriveSend installed and want to use them at the same time, configure them to watch **different folders** to avoid conflicts. For example:
+
+- DropSend watches: `ComfyUI/output/dropbox/`
+- DriveSend watches: `ComfyUI/output/gdrive/`
+
+Or simply use one node at a time by setting `run_process` to `False` on the node you're not using.
+
+---
+
 ## 🧪 Tested On
 
 **Fully Tested:**
@@ -469,6 +495,7 @@ If you encounter any problems on Windows or Linux, please open an issue on GitHu
 Contributions and pull requests are welcome!
 
 Shout-out to Adam for his contributions to this node build and additional Dropbox assistant tool, he helped make the setup easier!
+
 ---
 
 ## 📁 Repository Structure
@@ -476,8 +503,13 @@ Shout-out to Adam for his contributions to this node build and additional Dropbo
 ```
 ComfyUI_DropSendNode/
 ├── __init__.py
-├── dropsend_autouploader.py
-├── dropsend_setup.py
+├── dropsend_uploader_node.py
+├── dropsend_setup_node.py
+├── dropbox_upload.py
+├── dropbox_auth_manager.py
+├── encrypt_file.py
+├── monitor_output.py
+├── oauth_handler.py
 ├── requirements.txt
 ├── README.md
 ├── .gitignore
