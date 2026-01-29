@@ -1,22 +1,79 @@
 # ComfyUI DropSend Node
 
-This custom node package enhances ComfyUI workflows with seamless Dropbox upload functionality. It streamlines uploading ComfyUI output files to your Dropbox cloud storage. To access these files locally, configure the Dropbox app to sync them to your computer.
+A ComfyUI custom node for seamless Dropbox uploads with **optional** encryption capabilities. Automatically upload your ComfyUI output files (images and videos) to Dropbox cloud storage — with or without encryption.
+
+## 🔄 How It Works
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            CLOUD (RunPod, etc.)                             │
+│                                                                             │
+│   ComfyUI generates files ──→ DropSend Node ──→ Uploads to Dropbox         │
+│        (png, mp4, etc.)         │                                          │
+│                                 │                                          │
+│                                 ▼                                          │
+│                      ┌──────────────────────┐                              │
+│                      │ Encryption OPTIONAL  │                              │
+│                      │ ☐ OFF: file.png      │                              │
+│                      │ ☑ ON:  file.png.enc  │                              │
+│                      └──────────────────────┘                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+                               ☁️ DROPBOX
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           YOUR LOCAL MACHINE                                │
+│                                                                             │
+│   Dropbox syncs/downloads ──→ If encrypted: Run decrypt script (local)     │
+│                                             ──→ file.png (viewable!)       │
+│                                                                             │
+│                               If not encrypted: Ready to use!              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Encryption is completely optional.** If you don't need it, simply leave `enable_encryption` off and your files upload directly to Dropbox as-is. Enable encryption only if you want an extra layer of security for your files in cloud storage.
 
 ## 📤📦 Features
 
-- **📤📦 Dropbox AutoUploader Node**
-  Automatically uploads newly created images/videos to Dropbox.
+- **📤📦 DropSend AutoUploader Node**
+Automatically uploads newly created files to Dropbox with optional file encryption capabilities.
 
-  - Monitors a specified folder (e.g., ComfyUI's `output/`) in real time.
-  - Automatically uploads new files (images or video) to your Dropbox account.
+- Monitors a specified folder (e.g., ComfyUI's `output/`) in real time, with optional recursive subfolder monitoring.
+- Supports common ComfyUI file types: `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.mp4`, `.avi`, `.mov`.
+- Optional encryption of files before upload, creating `.enc` files using a secure Fernet key (AES-128).
+- Configurable toggles for:
+- `enable_encryption`: Encrypt files before upload (default: off).
+- `Post_Delete_Enc`: Delete encrypted `.enc` files after upload verification (default: off).
+- `Subfolder_Monitor`: Monitor subfolders in the watch directory (default: on).
+- `run_process`: Start or stop the monitoring and uploading process (default: on).
+- Uses a queue system to ensure reliable processing of files, even under high load, preventing skipped files.
+- Verifies upload integrity using SHA256 checksums to ensure files are not corrupted during transfer.
 
 - **🛠️📦 DropSend Setup Node**
-  Streamlines Dropbox API access setup by reducing steps and automatically running curl to extend the lifespan of your API keys.   
+Streamlines Dropbox API access setup and encryption key management.
 
-  - Accepts your App Key, App Secret, and Authorization Code
-  - Automatically generates a refresh token.
-  - Provides API Key credentials for easy integration into your system's Environment Variables or Secret Keys.
-  - (Optional) Saves credentials to a `.env` file if selected or if running locally.
+- Accepts your App Key, App Secret, and Authorization Code to generate a refresh token.
+- Provides API credentials and optional encryption key for easy integration into Environment Variables and RunPod Secrets.
+- Supports two storage methods:
+- `env_file`: Saves credentials to a `.env` file (recommended for local user setups).
+- `display_only`: Displays credentials in the console for manual copying (recommended for cloud setups like RunPod).
+- Supports three encryption key methods:
+- `off`: No encryption key is generated (use if encryption is not needed).
+- `Display Only`: Displays the encryption key in the console with other credentials.
+- `save to .env`: Saves the encryption key to the `.env` file.
+- Automatically runs curl to extend the lifespan of your API keys.
+
+- **🔐📁 Standalone Decryption Scripts (Local Use Only)**
+Decrypt `.enc` files on your local machine using the included scripts in the `/scripts/` folder.
+
+- **Local use only** — Run these on your computer after downloading/syncing encrypted files from Dropbox.
+- Cross-platform support for macOS, Windows, and Linux.
+- Restores encrypted files back to their original format (PNG, JPG, MP4, etc.).
+- Supports recursive folder processing.
+- Option to organize `.enc` files after decryption.
+- Includes optional encryption scripts for manual local encryption (not needed for normal DropSend operation).
 
 ---
 
@@ -25,7 +82,8 @@ This custom node package enhances ComfyUI workflows with seamless Dropbox upload
 Clone this repository into the `ComfyUI/custom_nodes/` directory:
 
 ```bash
-ComfyUI/custom_nodes/ComfyUI_DropSendNode/
+cd ComfyUI/custom_nodes/
+git clone https://github.com/machinepainting/ComfyUI_DropSendNode.git
 ```
 
 Install dependencies:
@@ -55,7 +113,7 @@ pip install -r requirements.txt
     - files.content.write
     - files.content.read
 
-6. Click `Submit` to save your selection.
+6. Click `Submit` to save permissions.
 7. Navigate back to the `Settings` Tab.
 8. Note your `App Key` and `App Secret` or be prepared to Copy and Paste into the 'DropSend Setup Node' in the next steps.
 
@@ -79,6 +137,7 @@ pip install -r requirements.txt
     DROPBOX_APP_KEY: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
     DROPBOX_APP_SECRET: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
     DROPBOX_REFRESH_TOKEN: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    comfyui_encryption_key=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX (only displays if encryption_key_method is 'true')
 ```
 
 13. For Runpod users, navigate to the main dashboard at [https://www.runpod.io]. Click Secrets in the sidebar, then click Create Secret.
@@ -92,6 +151,8 @@ pip install -r requirements.txt
 
 3   Secret Name:  `DROPBOX_REFRESH_TOKEN` Secret Value: `PASTE_YOUR_REFRESH_TOKEN_HERE`
 
+4   Secret Name:  `comfyui_encryption_key` Secret Value: `PASTE_YOUR_ENCRYPTION_KEY_HERE`
+
 
 15. Add the Environment Variables to your Runpod Pod. You can do this by restarting, terminating, editing, or recreating your Pod. Before deploying, select `Edit Template` and select `Environment Variables` (Dropdown). Click `+ Add Environment Variables` and add the following:
 
@@ -101,11 +162,15 @@ pip install -r requirements.txt
 
 3 - Click `key` and paste in `DROPBOX_REFRESH_TOKEN` then click the `🗝️` symbol in the `value` field and select `DROPBOX_REFRESH_TOKEN`. The field should now read `{{ RUNPOD_SECRET_DROPBOX_REFRESH_TOKEN }}`
 
-16. Click `Set Overrides`, then deploy your Pod
-** Note: for non-Runpod/other cloud users: Input Environment Variables as required, ensuring they are named correctly; `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET`, `DROPBOX_REFRESH_TOKEN`.
+4 - Click `key` and paste in `comfyui_encryption_key` then click the `🗝️` symbol in the `value` field and select `comfyui_encryption_key`. The field should now read `{{ RUNPOD_SECRET_comfyui_encryption_key }}`
 
-17. Open your ComfyUI workflow and add the the `DropSend AutoUploader Node` into your workflow. You can now remove the DropSend Setup Node from your workflow. Run ComfyUI and confirm that media is being sent to your Dropbox folder.
-Note: If you change the `dropbox_dest_folder` in the node settings, it will automatically create a new folder in Dropbox as long as it starts with `/Apps/`.
+16. Click `Set Overrides`, then deploy your Pod
+** Note: for non-Runpod/other cloud users: Input Environment Variables as required, ensuring they are named correctly; `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET`, `DROPBOX_REFRESH_TOKEN`,`comfyui_encryption_key`
+
+17. Add the DropSend AutoUploader Node to your ComfyUI workflow, configure settings (e.g., enable_encryption, Subfolder_Monitor, run_process), and run. Verify that files are uploaded to your Dropbox folder.
+
+Note: If you change dropbox_dest_folder, it must start with /Apps/ for App Folder access.
+Stopping the Process: Set run_process to False and run the node to stop monitoring and uploading without restarting ComfyUI.
 
 ENJOY!!
 
@@ -120,14 +185,236 @@ ENJOY!!
     - `dropbox_dest_folder`     [ /Apps/ComfyUI_Output_Files ] (Change the folder name if desired)
     - `reconnect`               [ false ] (Set to `true` only if you need to re-run or delete current credentials)
     - `storage_method`          [ env_file ] (Stores credentials in persistent or local storage)
-
+    - `encryption_key_method`   [Display Only] (or save to .env for local storage, off if encryption is not needed)
+    
 10b. Click 'Run' on the node or in the ComfyUI workflow. Two Dropbox pop-up windows will appear to accept app permissions and generate the Authorization Code.
 11b. Copy the entire output string from the pop-up and paste it into the `auth_code` field in the DropSend Setup Node.
 12b. Click 'Run' again on the DropSend Setup Node. Restart ComfyUI.
-13b. Open your ComfyUI workflow and add the `DropSend AutoUploader Node` to your workflow. You can now remove the DropSend Setup Node from your workflow. Run ComfyUI and confirm that media is being sent to your Dropbox folder.
+13b. Open your ComfyUI workflow and add the `DropSend AutoUploader Node` to your workflow. You can now remove the DropSend Setup Node from your workflow. Run ComfyUI and confirm that media is being sent to your Dropbox folder. Restart ComfyUI to load the .env file (if used). 
+
 Note: If you change the `dropbox_dest_folder` in the node settings, it will automatically create a new folder in Dropbox as long as it starts with `/Apps/`.
 
 ENJOY!!
+
+---
+
+## 🔑📦 Encryption Key Management
+
+If you enable encryption in the DropSend AutoUploader Node, an encryption key is generated during setup (unless `encryption_key_method` is `off`). This key is **required** to decrypt `.enc` files downloaded from Dropbox.
+
+### Saving the Encryption Key
+
+**Display Only (Recommended for Cloud):**
+
+If `encryption_key_method` is `Display Only`, the key is shown in the console after running the setup node with a valid `auth_code`:
+
+```
+comfyui_encryption_key=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+```
+
+Copy the key and store it securely using one of the methods below.
+
+**Save to .env (Recommended for Local):**
+
+If `encryption_key_method` is `save to .env`, the key is saved in `ComfyUI/custom_nodes/ComfyUI_DropSendNode/.env` as:
+
+```
+comfyui_encryption_key=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+```
+
+Ensure the `.env` file is excluded from version control (add to `.gitignore`).
+
+---
+
+## 🔐📁 Standalone Decryption Scripts (Local Use Only)
+
+The `/scripts/` folder contains standalone scripts to decrypt files on your **local machine**.
+
+> ⚠️ **These scripts are for LOCAL USE ONLY.** Run them on your personal computer after downloading or syncing encrypted files from Dropbox. Do not run on cloud instances.
+
+### What Are These Scripts For?
+
+**Decryption Scripts** — The primary scripts. Use these on your local machine to decrypt `.enc` files you've downloaded/synced from Dropbox. When encryption is enabled in the DropSend node, your files are uploaded as encrypted `.enc` files. These scripts restore them to their original format so you can view and use them.
+
+**Encryption Scripts** — Optional utility scripts. You do NOT need these for normal DropSend operation—the node handles encryption automatically during upload. These are provided for users who want to manually encrypt local files for backup or other purposes using the same key.
+
+### Supported File Types
+
+The scripts support all formats the DropSend node handles:
+- Images: `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`
+- Videos: `.mp4`, `.avi`, `.mov`
+
+When decrypting, the original file extension is preserved (e.g., `video.mp4.enc` → `video.mp4`).
+
+### Prerequisites (All Platforms)
+
+**Python 3.8+** and the **cryptography** library are required:
+
+```bash
+pip install cryptography
+```
+
+---
+
+## 🍎 macOS Setup & Usage
+
+### Storing Your Encryption Key in Keychain
+
+1. Open **Keychain Access** (search in Spotlight)
+2. Click **File > New Password Item**
+3. Fill in the fields:
+   - **Keychain Item Name:** `DropSend_Encryption_Key`
+   - **Account Name:** `DropSend`
+   - **Password:** Paste your encryption key
+4. Click **Add**
+
+To retrieve later: Search for `DropSend_Encryption_Key` in Keychain Access, double-click, check **Show Password**, and authenticate.
+
+### Running the Scripts
+
+1. Navigate to the scripts folder:
+   ```bash
+   cd ComfyUI/custom_nodes/ComfyUI_DropSendNode/scripts
+   ```
+
+2. Make the script executable (first time only):
+   ```bash
+   chmod +x decrypt_folder_mac.sh
+   chmod +x encrypt_folder_mac.sh
+   ```
+
+3. Run the decryption script:
+   ```bash
+   ./decrypt_folder_mac.sh
+   ```
+
+4. When prompted:
+   - Drag and drop the folder containing `.enc` files into the terminal, or type the path
+   - Choose whether to process subfolders recursively (Y/N)
+   - Optionally move `.enc` files to a separate folder after decryption
+
+---
+
+## 🪟 Windows Setup & Usage
+
+### Storing Your Encryption Key
+
+**Using Environment Variable (Recommended):**
+
+1. Press `Win + R`, type `sysdm.cpl`, press Enter
+2. Go to **Advanced** tab → **Environment Variables**
+3. Under **User variables**, click **New**
+4. Set:
+   - **Variable name:** `DROPSEND_ENCRYPTION_KEY`
+   - **Variable value:** Your encryption key
+5. Click **OK** to save
+6. Restart any open terminals/command prompts
+
+### Running the Scripts
+
+1. Open **Command Prompt** or **PowerShell**
+
+2. Navigate to the scripts folder:
+   ```cmd
+   cd ComfyUI\custom_nodes\ComfyUI_DropSendNode\scripts
+   ```
+
+3. Run the decryption script:
+   ```cmd
+   python decrypt_folder_win.py
+   ```
+
+4. When prompted:
+   - Enter the full path to the folder containing `.enc` files
+   - Choose whether to process subfolders recursively (Y/N)
+   - Optionally move `.enc` files to a separate folder after decryption
+
+---
+
+## 🐧 Linux Setup & Usage
+
+### Storing Your Encryption Key
+
+**Option A: Environment Variable**
+
+Add to your `~/.bashrc` or `~/.zshrc`:
+
+```bash
+export DROPSEND_ENCRYPTION_KEY="your_encryption_key_here"
+```
+
+Then reload:
+
+```bash
+source ~/.bashrc
+```
+
+**Option B: Secret Service (GNOME Keyring / KWallet)**
+
+If you have `secret-tool` installed (comes with `libsecret-tools`):
+
+```bash
+# Store the key
+echo -n "your_encryption_key_here" | secret-tool store --label="DropSend Encryption Key" service DropSend username DropSend
+
+# Retrieve the key (for verification)
+secret-tool lookup service DropSend username DropSend
+```
+
+Install secret-tool if needed:
+
+```bash
+# Debian/Ubuntu
+sudo apt install libsecret-tools
+
+# Fedora
+sudo dnf install libsecret
+
+# Arch
+sudo pacman -S libsecret
+```
+
+### Running the Scripts
+
+1. Navigate to the scripts folder:
+   ```bash
+   cd ComfyUI/custom_nodes/ComfyUI_DropSendNode/scripts
+   ```
+
+2. Make the script executable (first time only):
+   ```bash
+   chmod +x decrypt_folder_linux.sh
+   chmod +x encrypt_folder_linux.sh
+   ```
+
+3. Run the decryption script:
+   ```bash
+   ./decrypt_folder_linux.sh
+   ```
+
+4. When prompted:
+   - Enter the full path to the folder containing `.enc` files
+   - Choose whether to process subfolders recursively (Y/N)
+   - Optionally move `.enc` files to a separate folder after decryption
+
+---
+
+## 🔄 Cross-Platform Python Script (Alternative)
+
+For maximum compatibility, use the Python script directly on any platform:
+
+```bash
+cd ComfyUI/custom_nodes/ComfyUI_DropSendNode/scripts
+python decrypt_folder.py
+```
+
+This script will:
+1. Automatically detect your operating system
+2. Check for your encryption key (environment variable, Keychain, or Secret Service)
+3. Prompt for the key if not found
+4. Process all `.enc` files and restore them to their original format
+
+---
 
 ## 🛠️📦 DropSend Setup Instructions (Manual Setup)(Advanced)
 (Only use this method if you choose to setup manually. This method is for advanced users and does not use the `DropSend Setup Node`.)
@@ -142,16 +429,64 @@ https://www.dropbox.com/oauth2/authorize?client_id=APPKEYHERE&response_type=code
     curl https://api.dropbox.com/oauth2/token \
     -d code=AUTHORIZATIONCODEHERE \
     -d grant_type=authorization_code \
-    -u APPKEYHERE:APPSECRETHERE`
+    -u APPKEYHERE:APPSECRETHERE
     
 4c. Copy and note the returned refresh token and use it in your cloud or local environment variables where applicable. 
 
 ENJOY!!
 
+---
+
+## ⚠️ Security Best Practices
+
+1. **Never commit your `.env` file** - Ensure `.env` is in your `.gitignore`
+2. **Use secure key storage** - Prefer OS-native credential storage (Keychain, Environment Variables, Secret Service) over plain text files
+3. **Backup your encryption key** - Without it, encrypted files cannot be recovered
+4. **Use unique keys** - Don't reuse the encryption key for other purposes
+
+---
+
 ## 🧪 Tested On
+
+**Fully Tested:**
+- macOS 13+ (Ventura, Sonoma)
 - Python 3.10 / 3.11
-- ComfyUI (Aug 2025)
+- ComfyUI (Jan 2026)
 - Dropbox API with refresh token support
+
+**Community Testing Needed:**
+- Windows 10/11 — *Please test and report any issues or suggestions!*
+- Linux (Ubuntu, Fedora, Arch) — *Please test and report any issues or suggestions!*
+
+If you encounter any problems on Windows or Linux, please open an issue on GitHub with:
+- Your OS version
+- Python version
+- Error messages (if any)
+- Steps to reproduce
+
+Contributions and pull requests are welcome!
+
+---
+
+## 📁 Repository Structure
+
+```
+ComfyUI_DropSendNode/
+├── __init__.py
+├── dropsend_autouploader.py
+├── dropsend_setup.py
+├── requirements.txt
+├── README.md
+├── .gitignore
+└── scripts/
+    ├── decrypt_folder.py          # Cross-platform Python script (recommended)
+    ├── decrypt_folder_mac.sh      # macOS decryption script
+    ├── encrypt_folder_mac.sh      # macOS encryption script (local use only)
+    ├── decrypt_folder_win.py      # Windows decryption script
+    ├── encrypt_folder_win.py      # Windows encryption script (local use only)
+    ├── decrypt_folder_linux.sh    # Linux decryption script
+    └── encrypt_folder_linux.sh    # Linux encryption script (local use only)
+```
 
 ---
 
