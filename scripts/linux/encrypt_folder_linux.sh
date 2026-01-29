@@ -1,18 +1,21 @@
 #!/bin/bash
 
-# DropSend Encryption Script for Linux
+# ComfyUI Encryption Scripts - Encryption (Linux)
+# Works with both DropSend and DriveSend nodes
 # Encrypts image/video files using a key from environment variable or Secret Service
+#
+# NOTE: This script is for LOCAL USE ONLY
 
-echo "=== DropSend File Encryption (Linux) ==="
+echo "=== ComfyUI File Encryption (Linux) ==="
+echo ""
+echo "NOTE: This script is for LOCAL USE ONLY."
+echo "The ComfyUI nodes handle encryption automatically during upload."
 echo ""
 echo "Enter the folder path containing files to encrypt:"
 
-# Read folder path
 read -r FOLDER
-# Remove any surrounding quotes
 FOLDER=$(echo "$FOLDER" | sed "s/^['\"]//;s/['\"]$//")
 
-# Validate folder path
 if [ -z "$FOLDER" ] || [ ! -d "$FOLDER" ]; then
     echo "Error: '$FOLDER' is not a valid directory."
     exit 1
@@ -21,7 +24,6 @@ fi
 echo "Processing folder: $FOLDER"
 echo ""
 
-# Prompt for recursive option
 echo "Would you like to encrypt files recursively (including subfolders)? (Y/N)"
 read -r RECURSIVE_RESPONSE
 if [[ "$RECURSIVE_RESPONSE" == "Y" || "$RECURSIVE_RESPONSE" == "y" ]]; then
@@ -30,29 +32,28 @@ else
     RECURSIVE="false"
 fi
 
-# Try to get key from environment variable
 echo ""
 echo "Retrieving encryption key..."
 
-KEY="${DROPSEND_ENCRYPTION_KEY:-}"
+# Try multiple environment variable names for compatibility
+KEY="${COMFYUI_ENCRYPTION_KEY:-}"
+[ -z "$KEY" ] && KEY="${comfyui_encryption_key:-}"
+[ -z "$KEY" ] && KEY="${DROPSEND_ENCRYPTION_KEY:-}"
+[ -z "$KEY" ] && KEY="${DRIVESEND_ENCRYPTION_KEY:-}"
 
-# If not in environment, try secret-tool (GNOME Keyring / KWallet)
+# Try Secret Service with multiple names
 if [ -z "$KEY" ] && command -v secret-tool &> /dev/null; then
-    KEY=$(secret-tool lookup service DropSend username DropSend 2>/dev/null)
+    KEY=$(secret-tool lookup service ComfyUI username ComfyUI 2>/dev/null)
+    [ -z "$KEY" ] && KEY=$(secret-tool lookup service DropSend username DropSend 2>/dev/null)
+    [ -z "$KEY" ] && KEY=$(secret-tool lookup service DriveSend username DriveSend 2>/dev/null)
     if [ -n "$KEY" ]; then
-        echo "Using key from Secret Service (GNOME Keyring/KWallet)."
+        echo "Using key from Secret Service."
     fi
 fi
 
-# If still no key, prompt user
 if [ -z "$KEY" ]; then
     echo ""
-    echo "Encryption key not found in environment or Secret Service."
-    echo ""
-    echo "To set up automatic key retrieval, either:"
-    echo "  1. Set environment variable: export DROPSEND_ENCRYPTION_KEY=\"your_key\""
-    echo "  2. Store with secret-tool: echo -n \"your_key\" | secret-tool store --label=\"DropSend\" service DropSend username DropSend"
-    echo ""
+    echo "Encryption key not found."
     echo -n "Enter your encryption key: "
     read -r KEY
     
@@ -66,13 +67,11 @@ fi
 
 echo ""
 
-# Python script to encrypt supported files
 python3 - <<EOF
 import os
 import sys
 from cryptography.fernet import Fernet
 
-# Supported file extensions (matching DropSend node)
 SUPPORTED_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.webp', '.gif', '.mp4', '.avi', '.mov')
 
 def encrypt_file(input_path, output_path, key):
@@ -88,7 +87,6 @@ def encrypt_file(input_path, output_path, key):
         print(f"  ✗ Error encrypting {os.path.basename(input_path)}: {e}")
         return False
 
-# Process files
 folder = "$FOLDER"
 key = "$KEY"
 recursive = "$RECURSIVE" == "true"
@@ -112,38 +110,34 @@ else:
             files_to_encrypt.append(os.path.join(folder, file))
 
 if not files_to_encrypt:
-    print("No supported files found in the specified location.")
+    print("No supported files found.")
     sys.exit(0)
 
 print(f"Found {len(files_to_encrypt)} file(s) to encrypt.")
 print("")
 
 for file_path in files_to_encrypt:
-    # Create temp file first, then rename
     temp_enc_path = file_path + '.tmp.enc'
     final_enc_path = file_path + '.enc'
     
     try:
         if encrypt_file(file_path, temp_enc_path, key):
-            os.remove(file_path)  # Delete original
-            os.rename(temp_enc_path, final_enc_path)  # Rename to final
-            print(f"  ✓ Encrypted: {os.path.basename(file_path)} → {os.path.basename(final_enc_path)}")
+            os.remove(file_path)
+            os.rename(temp_enc_path, final_enc_path)
+            print(f"  ✓ Encrypted: {os.path.basename(file_path)}")
             success_count += 1
         else:
             error_count += 1
             if os.path.exists(temp_enc_path):
                 os.remove(temp_enc_path)
     except Exception as e:
-        print(f"  ✗ Error processing {os.path.basename(file_path)}: {e}")
+        print(f"  ✗ Error: {e}")
         error_count += 1
-        if os.path.exists(temp_enc_path):
-            os.remove(temp_enc_path)
 
 print("")
 print(f"Encryption complete: {success_count} successful, {error_count} failed")
 EOF
 
-# Check if encryption was successful
 if [ $? -ne 0 ]; then
     echo "Error: Encryption process encountered an error."
     exit 1
