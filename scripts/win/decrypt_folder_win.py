@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-DropSend Decryption Script for Windows
+ComfyUI Encryption Scripts - Decryption (Windows)
+Works with both DropSend and DriveSend nodes
 Decrypts .enc files using a key from environment variable or manual input
 """
 
@@ -18,10 +19,14 @@ except ImportError:
 
 def get_encryption_key():
     """Get encryption key from environment variable or user input."""
-    # Try environment variable first
-    key = os.environ.get('DROPSEND_ENCRYPTION_KEY')
+    # Try multiple environment variable names for compatibility
+    key = (os.environ.get('COMFYUI_ENCRYPTION_KEY') or 
+           os.environ.get('comfyui_encryption_key') or
+           os.environ.get('DROPSEND_ENCRYPTION_KEY') or
+           os.environ.get('DRIVESEND_ENCRYPTION_KEY'))
+    
     if key:
-        print("Using key from DROPSEND_ENCRYPTION_KEY environment variable.")
+        print("Using key from environment variable.")
         return key
     
     # Prompt user
@@ -32,7 +37,7 @@ def get_encryption_key():
     print("  1. Press Win + R, type 'sysdm.cpl', press Enter")
     print("  2. Go to Advanced tab > Environment Variables")
     print("  3. Under User variables, click New")
-    print("  4. Variable name: DROPSEND_ENCRYPTION_KEY")
+    print("  4. Variable name: COMFYUI_ENCRYPTION_KEY")
     print("  5. Variable value: [your encryption key]")
     print("  6. Click OK and restart any open terminals")
     print("")
@@ -60,12 +65,11 @@ def decrypt_file(encrypted_path, output_path, fernet):
 
 
 def main():
-    print("=== DropSend File Decryption (Windows) ===")
+    print("=== ComfyUI File Decryption (Windows) ===")
     print("")
     
     # Get folder path
     folder = input("Enter the folder path containing .enc files: ").strip()
-    # Remove surrounding quotes if present
     folder = folder.strip('"\'')
     
     if not folder or not os.path.isdir(folder):
@@ -115,8 +119,6 @@ def main():
     error_count = 0
     
     for enc_path in enc_files:
-        # Remove .enc extension to get original filename
-        # The original extension is preserved (e.g., image.png.enc -> image.png)
         out_path = enc_path[:-4]  # Remove .enc
         
         if decrypt_file(enc_path, out_path, fernet):
