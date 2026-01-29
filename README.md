@@ -8,15 +8,15 @@ A ComfyUI custom node for seamless Dropbox uploads with **optional** encryption 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                            CLOUD (RunPod, etc.)                             │
 │                                                                             │
-│   ComfyUI generates files ──→ DropSend Node ──→ Uploads to Dropbox         │
-│        (png, mp4, etc.)         │                                          │
-│                                 │                                          │
-│                                 ▼                                          │
-│                      ┌──────────────────────┐                              │
-│                      │ Encryption OPTIONAL  │                              │
-│                      │ ☐ OFF: file.png      │                              │
-│                      │ ☑ ON:  file.png.enc  │                              │
-│                      └──────────────────────┘                              │
+│   ComfyUI generates files ──→ DropSend Node ──→ Uploads to Dropbox          │
+│        (png, mp4, etc.)         │                                           │
+│                                 │                                           │
+│                                 ▼                                           │
+│                      ┌──────────────────────┐                               │
+│                      │ Encryption OPTIONAL  │                               │
+│                      │ ☐ OFF: file.png      │                               │
+│                      │ ☑ ON:  file.png.enc  │                               │
+│                      └──────────────────────┘                               │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
@@ -26,10 +26,10 @@ A ComfyUI custom node for seamless Dropbox uploads with **optional** encryption 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           YOUR LOCAL MACHINE                                │
 │                                                                             │
-│   Dropbox syncs/downloads ──→ If encrypted: Run decrypt script (local)     │
-│                                             ──→ file.png (viewable!)       │
+│   Dropbox syncs/downloads ──→ If encrypted: Run decrypt script (local)      │
+│                                             ──→ file.png (viewable!)        │
 │                                                                             │
-│                               If not encrypted: Ready to use!              │
+│                               If not encrypted: Ready to use!               │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
