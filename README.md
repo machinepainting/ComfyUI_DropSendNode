@@ -156,7 +156,7 @@ pip install -r requirements.txt
 4   Secret Name:  `comfyui_encryption_key` Secret Value: `PASTE_YOUR_ENCRYPTION_KEY_HERE`
 
 
-15. Add the Environment Variables to your Runpod Pod. You can do this by restarting, terminating, editing, or recreating your Pod. Before deploying, select `Edit Template` and select `Environment Variables` (Dropdown). Click `+ Add Environment Variables` and add the following:
+15. Add the Environment Variables to your Runpod Pod. (Recommended: Create a custom template so you only have to do this once.) If not using a custom template, Before deploying your pod, select `Edit Template` and select `Environment Variables` (Dropdown). Click `+ Add Environment Variables` and add the following:
 
 1 - Click `key` and paste in `DROPBOX_APP_KEY` then click the `🗝️` symbol in the `value` field and select `DROPBOX_APP_KEY`. The field should now read `{{ RUNPOD_SECRET_DROPBOX_APP_KEY }}`
 
@@ -172,7 +172,7 @@ pip install -r requirements.txt
 17. Add the DropSend AutoUploader Node to your ComfyUI workflow, configure settings (e.g., enable_encryption, Subfolder_Monitor, run_process), and run. Verify that files are uploaded to your Dropbox folder.
 
 Note: If you change dropbox_dest_folder, it must start with /Apps/ for App Folder access.
-Stopping the Process: Set run_process to False and run the node to stop monitoring and uploading without restarting ComfyUI.
+Stopping the Process: Set run_process to False and run the node to stop monitoring and uploading without restarting ComfyUI. 
 
 ENJOY!!
 
@@ -216,7 +216,7 @@ comfyui_encryption_key=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 Copy the key and store it securely using one of the methods below.
 
-**Save to .env (Recommended for Local):**
+**Save to .env (Recommended for Local Only, NOT CLOUD USERS!):**
 
 If `encryption_key_method` is `save to .env`, the key is saved in `ComfyUI/custom_nodes/ComfyUI_DropSendNode/.env` as:
 
@@ -494,7 +494,7 @@ If you encounter any problems on Windows or Linux, please open an issue on GitHu
 
 Contributions and pull requests are welcome!
 
-Shout-out to Adam for his contributions to this node build and additional Dropbox assistant tool, he helped make the setup easier!
+Shout-out to Adam for his contributions to this node build and additional Dropbox assistant tool, he helped make the tedious setup easier!
 
 ---
 
