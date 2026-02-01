@@ -1,4 +1,4 @@
-# ComfyUI_DropSendNode/dropsend_uploader_node.py
+# dropsend_uploader_node.py
 
 import os
 import threading
@@ -7,7 +7,7 @@ import time
 from dotenv import load_dotenv, dotenv_values
 from watchdog.observers import Observer
 from .monitor_output import start_monitoring, watcher_observer, stop_queue_processor
-from .encrypt_file import FileEncryptHandler, ENCRYPT_EXTENSIONS, stop_queue_processor as stop_encrypt_queue_processor
+from .encrypt_file import FileEncryptHandler, ENCRYPT_EXTENSIONS, stop_queue_processor as stop_encrypt_queue_processor, get_encryption_key
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # Define encrypt_observer at module level
 encrypt_observer = None
 
-class DropSendRunNode:
+class DropSendAutoUploaderNode:
     @classmethod
     def INPUT_TYPES(cls):
         node_dir = os.path.dirname(__file__)
@@ -60,11 +60,11 @@ class DropSendRunNode:
 
     def start(self, watch_folder, dropbox_dest_folder, enable_encryption, Post_Delete_Enc, Subfolder_Monitor, run_process):
         global encrypt_observer
-        logger.info(f"Starting DropSendRunNode: watch_folder={watch_folder}, dropbox_dest_folder={dropbox_dest_folder}, encryption={enable_encryption}, Post_Delete_Enc={Post_Delete_Enc}, Subfolder_Monitor={Subfolder_Monitor}, run_process={run_process}")
+        logger.info(f"Starting DropSend AutoUploader: watch_folder={watch_folder}, dropbox_dest_folder={dropbox_dest_folder}, encryption={enable_encryption}, Post_Delete_Enc={Post_Delete_Enc}, Subfolder_Monitor={Subfolder_Monitor}, run_process={run_process}")
 
         # Handle stopping the process if run_process is False
         if not run_process:
-            logger.info("Stopping DropSendRunNode monitoring")
+            logger.info("Stopping DropSend AutoUploader monitoring")
             if watcher_observer and watcher_observer.is_alive():
                 watcher_observer.stop()
                 watcher_observer.join()
@@ -107,10 +107,10 @@ Set 'run_process' to True and run the node again to resume.
 
         # Validate encryption key if enabled
         if enable_encryption:
-            ENCRYPT_KEY = os.getenv("COMFYUI_ENCRYPTION_KEY") or os.getenv("RUNPOD_SECRET_COMFYUI_ENCRYPTION_KEY")
+            ENCRYPT_KEY = get_encryption_key()
             if not ENCRYPT_KEY:
                 logger.error("Encryption enabled but no encryption key found")
-                raise ValueError(f"Encryption enabled but no encryption key found in 'COMFYUI_ENCRYPTION_KEY' or 'RUNPOD_SECRET_COMFYUI_ENCRYPTION_KEY'")
+                raise ValueError(f"Encryption enabled but no encryption key found. Set COMFYUI_ENCRYPTION_KEY environment variable.")
 
         # Persist settings
         node_dir = os.path.dirname(__file__)
@@ -164,5 +164,5 @@ Set 'run_process' to True and run the node again to resume.
         return (f"📦✅ .env updated: DROPBOX_FOLDER={dropbox_dest_folder}, ENABLE_ENCRYPTION={enable_encryption}, POST_DELETE_ENC={Post_Delete_Enc}, SUBFOLDER_MONITOR={Subfolder_Monitor}, RUN_PROCESS={run_process}",)
 
 # Required mappings for ComfyUI
-NODE_CLASS_MAPPINGS = {"DropSendRunNode": DropSendRunNode}
-NODE_DISPLAY_NAME_MAPPINGS = {"DropSendRunNode": "📦📤 DropSend - AutoUploader"}
+NODE_CLASS_MAPPINGS = {"DropSendAutoUploader": DropSendAutoUploaderNode}
+NODE_DISPLAY_NAME_MAPPINGS = {"DropSendAutoUploader": "📦📤 DropSend - AutoUploader"}
