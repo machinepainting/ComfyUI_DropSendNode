@@ -46,7 +46,7 @@ This tool comes with two nodes.
 
 ## 📤📦 Features
 
-- **📤📦 DropSend AutoUploader Node**
+- ****📤📦 DropSend AutoUploader Node****
 Automatically uploads newly created files to Dropbox with optional file encryption capabilities.
 
 - Monitors a specified folder (e.g., ComfyUI's `output/`) in real time, with optional recursive subfolder monitoring.
@@ -60,7 +60,7 @@ Automatically uploads newly created files to Dropbox with optional file encrypti
 - Uses a queue system to ensure reliable processing of files, even under high load, preventing skipped files.
 - Verifies upload integrity using SHA256 checksums to ensure files are not corrupted during transfer.
 
-- **🛠️📦 DropSend Setup Node**
+- ****🛠️📦 DropSend Setup Node****
 Streamlines Dropbox API access setup and encryption key management.
 
 - Accepts your App Key, App Secret, and Authorization Code to generate a refresh token.
@@ -74,7 +74,7 @@ Streamlines Dropbox API access setup and encryption key management.
 - `save to .env`: Saves the encryption key to the `.env` file.
 - Automatically runs curl to extend the lifespan of your API keys.
 
-- **🔐📁 Standalone Decryption Scripts (Local Use Only)**
+- ****🔐📁 Standalone Decryption Scripts (Local Use Only)****
 Decrypt `.enc` files on your local machine using the included scripts in the `/scripts/` folder.
 
 - **Local use only** — Run these on your computer after downloading/syncing encrypted files from Dropbox (move files out of synced Dropbox local folder before decrypting, otherwise it defeats the purpose of using encryption.).
