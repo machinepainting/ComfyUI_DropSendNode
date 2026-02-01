@@ -1,4 +1,4 @@
-# ComfyUI DropSend Node
+# ComfyUI DropSend Node (ComfyUI >> DropBox)
 
 Automatically upload your ComfyUI output files to Dropbox with optional encryption. Set it and forget it!
 
