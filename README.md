@@ -4,6 +4,8 @@ Want to automatically move your files off the cloud to your local machine? Want 
 
 DROPSEND NODE - A custom ComfyUI node for seamless Dropbox uploads with **optional** encryption capabilities. Automatically uploads your ComfyUI output files (images and videos) to Dropbox cloud storage — with or without encryption.
 
+![DropSend Node Overview](Images/DropSend_Node_Display.jpg)
+
 ## 🔄 How It Works
 
 ```
