@@ -21,11 +21,37 @@ logger = logging.getLogger(__name__)
 ENCRYPT_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.webp', '.gif', '.mp4', '.avi', '.mov')
 _stop_queue_processor = False  # Stop signal for queue processor
 
+
+def get_encryption_key():
+    """
+    Get the encryption key from environment variable.
+    Checks multiple possible key names for compatibility.
+    
+    Key retrieval order:
+      - COMFYUI_ENCRYPTION_KEY (uppercase - preferred)
+      - comfyui_encryption_key (lowercase - legacy)
+      - DROPSEND_ENCRYPTION_KEY
+      - DRIVESEND_ENCRYPTION_KEY
+      - RUNPOD_SECRET_COMFYUI_ENCRYPTION_KEY (RunPod fallback)
+    
+    Returns:
+        str: The encryption key, or None if not set
+    """
+    return (
+        os.environ.get('COMFYUI_ENCRYPTION_KEY') or
+        os.environ.get('comfyui_encryption_key') or
+        os.environ.get('DROPSEND_ENCRYPTION_KEY') or
+        os.environ.get('DRIVESEND_ENCRYPTION_KEY') or
+        os.environ.get('RUNPOD_SECRET_COMFYUI_ENCRYPTION_KEY')
+    )
+
+
 def stop_queue_processor():
     """Signal the queue processor to stop."""
     global _stop_queue_processor
     _stop_queue_processor = True
     logger.info("Signaled encryption queue processor to stop")
+
 
 class FileEncryptHandler(FileSystemEventHandler):
     def __init__(self, watch_dir="/workspace/ComfyUI/output", delete_original=False, subfolder_monitor=True):
@@ -55,9 +81,9 @@ class FileEncryptHandler(FileSystemEventHandler):
                             self.file_queue.put(file_path)
                             continue
 
-                        ENCRYPT_KEY = os.getenv("COMFYUI_ENCRYPTION_KEY") or os.getenv("RUNPOD_SECRET_COMFYUI_ENCRYPTION_KEY")
+                        ENCRYPT_KEY = get_encryption_key()
                         if not ENCRYPT_KEY:
-                            logger.error("Encryption key not found in 'COMFYUI_ENCRYPTION_KEY' or 'RUNPOD_SECRET_COMFYUI_ENCRYPTION_KEY'")
+                            logger.error("Encryption key not found. Set COMFYUI_ENCRYPTION_KEY environment variable.")
                             continue
                         fernet = Fernet(ENCRYPT_KEY.encode())
 
@@ -78,6 +104,7 @@ class FileEncryptHandler(FileSystemEventHandler):
             logger.info("Encryption queue processor stopped")
 
         threading.Thread(target=process_queue, daemon=True).start()
+
 
 if __name__ == "__main__":
     watch_dir = os.getenv("WATCH_DIR", "/workspace/ComfyUI/output")
