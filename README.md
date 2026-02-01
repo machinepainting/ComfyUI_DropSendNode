@@ -1,8 +1,13 @@
 # ComfyUI DropSend Node
 
-Want to automatically move your files off the cloud to your local machine? Want to do so securely with optional encryption? Well do I have the node for you!
+Want to automatically move your files off the cloud to your local machine? Want to do so securely with optional encryption? Well do I have the node for you! 
+DropSend Node
 
-DROPSEND NODE - A custom ComfyUI node for seamless Dropbox uploads with **optional** encryption capabilities. Automatically uploads your ComfyUI output files (images and videos) to Dropbox cloud storage — with or without encryption.
+This tool comes with two nodes. 
+
+1) DropSend AutoUploader Node - A custom ComfyUI node for seamless Dropbox uploads with **optional** encryption capabilities. Automatically uploads your ComfyUI output files (images and videos) to Dropbox cloud storage — with or without encryption. Once Installed (instructions below) keep DropSend Node open on the projects you wish to Auto Send your files to your DropBox. Node STRING output is not needed. 
+
+DropSend Setup Node - Used to simplify a the API key setup process for the AutoUploader Node. Delete from workflow once installed. 
 
 ![DropSend Node Overview](Images/DropSend_Node_Display.jpg)
 
