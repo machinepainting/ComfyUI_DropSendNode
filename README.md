@@ -126,28 +126,40 @@ COMFYUI_ENCRYPTION_KEY=XXXXXXXXXX (if encryption enabled)
 ### Step 3: Create RunPod Secrets
 
 1. Go to [RunPod.io](https://www.runpod.io) → Click **Secrets** in sidebar
-2. Create these secrets:
+2. Create these secrets (Make sure the name of the secret is EXACTLY as shown below):
 
 | Secret Name | Secret Value |
 |-------------|--------------|
 | `DROPBOX_APP_KEY` | Your app key |
 | `DROPBOX_APP_SECRET` | Your app secret |
 | `DROPBOX_REFRESH_TOKEN` | Your refresh token |
-| `COMFYUI_ENCRYPTION_KEY` | Your encryption key (if using encryption) |
+| `COMFYUI_ENCRYPTION_KEY` | Your encryption key *(optional - only if using encryption)* |
 
-### Step 4: Add Environment Variables to Pod
+### Step 4: Create a Custom Template (Recommended)
 
-1. Edit your pod template → **Environment Variables** dropdown
-2. Add each variable:
+Creating a template saves your environment variables so you don't have to add them every time.
 
-| Key | Value |
-|-----|-------|
+1. Go to [RunPod.io](https://www.runpod.io) → Click **My Templates** in sidebar
+2. Click **+ New Template**
+3. Configure your template settings (container image, GPU, etc.)
+4. Click **Environment Variables** dropdown
+5. Click **+ Add Environment Variable** for each:
+
+| Key | Value (click 🗝️ and select secret) |
+|-----|-------------------------------------|
 | `DROPBOX_APP_KEY` | `{{ RUNPOD_SECRET_DROPBOX_APP_KEY }}` |
 | `DROPBOX_APP_SECRET` | `{{ RUNPOD_SECRET_DROPBOX_APP_SECRET }}` |
 | `DROPBOX_REFRESH_TOKEN` | `{{ RUNPOD_SECRET_DROPBOX_REFRESH_TOKEN }}` |
-| `COMFYUI_ENCRYPTION_KEY` | `{{ RUNPOD_SECRET_COMFYUI_ENCRYPTION_KEY }}` |
+| `COMFYUI_ENCRYPTION_KEY` | `{{ RUNPOD_SECRET_COMFYUI_ENCRYPTION_KEY }}` *(optional)* |
 
-3. Click **Set Overrides** → Deploy
+6. Click **Save Template**
+7. When deploying a new pod, click **Change Template** → select your custom template. Done!
+
+> ⚠️ **Why this matters:** If you skip creating a custom template, you'll have to manually add all 4 environment variables every single time you start a new pod. Save yourself the headache — make the template once and reuse it.
+
+> **💡 New to templates?** Take a template you already use, copy its container/docker settings into a new custom template, add the environment variables above, and save. That's it.
+
+> **Already have a pod running?** Terminate it → deploy a new pod using your custom template. This is the cleanest way to pick up the new environment variables.
 
 ### Step 5: Test Upload
 
@@ -182,7 +194,9 @@ The `/scripts/` folder contains scripts to decrypt `.enc` files on your local ma
 
 > ⚠️ **LOCAL USE ONLY** — Run these after downloading encrypted files from Dropbox.
 
-### Prerequisites
+> **ONLY DECRYPT ONCE FILES HAVE BEEN MOVED TO YOUR LOCAL COMPUTER OR EXTERNAL HD. OTHERWISE IT DEFEATS THE PURPOSE OF ENCRYPTION BEFORE SENDING TO CLOUD STORAGE.**
+
+### Prerequisites on local machine for decrypting
 
 ```bash
 pip install cryptography
@@ -206,21 +220,54 @@ source ~/.bashrc
 
 ### Run Decryption
 
-```bash
-cd ComfyUI/custom_nodes/ComfyUI_DropSendNode/scripts
+### Local Decryption (Decrypt Files on Your Computer)
 
-# macOS
-./decrypt_folder_mac.sh
+Once your encrypted `.enc` files have been downloaded from the cloud, you can decrypt them locally using the platform-specific scripts provided in this repo.
 
-# Windows
-python decrypt_folder_win.py
+#### Step-by-Step
 
-# Linux
-./decrypt_folder_linux.sh
+1. **Go to the [`/scripts`](https://github.com/machinepainting/ComfyUI_DropSendNode/tree/main/scripts) folder** in this repository.
 
-# Cross-platform
-python decrypt_folder.py
-```
+2. **Select the script for your platform:**
+
+   | Platform | Script |
+   |---|---|
+   | macOS | `decrypt_folder_mac.sh` |
+   | Windows | `decrypt_folder_win.py` |
+   | Linux | `decrypt_folder_linux.sh` |
+   | Cross-platform | `decrypt_folder.py` |
+
+3. **Download the script** and place it in a convenient location on your computer. Your user root/home directory is recommended for easy terminal access (e.g. `~/` on macOS/Linux or `C:\Users\YourName\` on Windows).
+
+4. **Open a terminal** and navigate to the folder where you saved the script:
+   ```bash
+   # macOS / Linux — example if saved to home directory
+   cd ~/
+
+   # Windows (Command Prompt) — example if saved to user folder
+   cd C:\Users\YourName\
+   ```
+
+5. **Run the decryption script:**
+   ```bash
+   # macOS
+   ./decrypt_folder_mac.sh
+
+   # Windows
+   python decrypt_folder_win.py
+
+   # Linux
+   ./decrypt_folder_linux.sh
+
+   # Cross-platform (Python)
+   python decrypt_folder.py
+   ```
+
+6. **When prompted, drag in (or paste the path to) the folder containing your `.enc` files.**
+
+7. **The script will decrypt your files.** Once complete, you'll be asked if you'd like to move the original `.enc` files to a separate folder for cleanup. Note: the script will **never delete your files** — you can remove the `.enc` originals manually at your own discretion.
+
+That's it — your decrypted files are now available locally on your machine, off the cloud and ready to use.
 
 ---
 
