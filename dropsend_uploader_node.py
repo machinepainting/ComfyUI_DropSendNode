@@ -30,7 +30,7 @@ class DropSendAutoUploaderNode:
 
         default_watch = os.path.join(os.getcwd(), "output")
         default_dest = "/Apps/ComfyUI_Output_Files"
-        default_encrypt = False
+        default_encrypt = True
         default_delete_enc = False
         default_subfolder_monitor = True
         default_run_process = True
