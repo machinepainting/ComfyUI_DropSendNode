@@ -91,8 +91,7 @@ class FileEncryptHandler(FileSystemEventHandler):
                             file_data = f.read()
 
                         encrypted_data = fernet.encrypt(file_data)
-                        base_name = os.path.splitext(file_path)[0]
-                        enc_path = base_name + '.enc'
+                        enc_path = file_path + '.enc'
                         with open(enc_path, 'wb') as f:
                             f.write(encrypted_data)
                         logger.info(f"Created encrypted file: {enc_path}")
