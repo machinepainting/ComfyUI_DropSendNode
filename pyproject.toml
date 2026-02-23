@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-dropsend-node"
 description = "Automatically upload ComfyUI output files to Dropbox with optional encryption. Supports real-time monitoring, cloud setups (RunPod), and includes cross-platform decryption scripts."
-version = "1.0.2"
+version = "1.0.3"
 license = { file = "LICENSE" }
 dependencies = ["requests", "python-dotenv", "watchdog", "dropbox", "cryptography"]
 
