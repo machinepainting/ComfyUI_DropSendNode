@@ -496,6 +496,13 @@ ComfyUI_DropSendNode/
 
 ## Changelog
 
+### v1.1.1 — Docs
+
+Documentation-only release. No code or behavior changes. Published to ship the README delta to the Comfy Registry, since registry versions are immutable once published.
+
+- **New "Recovering files encrypted with an old key" subsection** under Encryption key rotation — step-by-step recovery procedure for `.enc` files encrypted under a previous key (including the v1.1.0 advisory case).
+- **Header image refreshed** to show the new node UI (modal-based credential entry, no more text fields).
+
 ### v1.1.0 — Setup Node refactor + security hardening
 
 **Security fixes (advisory):** earlier versions of the Setup Node accepted `app_key`, `app_secret`, and `auth_code` as workflow inputs and delivered credentials over a `send_sync(event, data)` call without an explicit `sid` argument. On ComfyUI hosts reachable over a network, both paths leaked credentials:
