@@ -401,15 +401,97 @@ pip install cryptography
 
 ### Store your encryption key locally
 
-**macOS (Keychain):**
-1. Open Keychain Access, choose File then New Password Item.
-2. Name: `ComfyUI_Encryption_Key`. Account: `ComfyUI`. Password: your key.
+The decrypt script reads `COMFYUI_ENCRYPTION_KEY` from your shell environment. Pick one approach per platform.
 
-**Windows:**
+#### macOS
+
+**Approach A — Keychain (recommended).** The key is stored encrypted at rest, locked behind your login, and never written to a dotfile in plaintext. Requires a tiny one-line wrapper to inject the value into the env at decrypt time.
+
+1. Save the key into Keychain (one-time setup, in Terminal):
+
+   ```bash
+   security add-generic-password -a "ComfyUI" -s "ComfyUI_Encryption_Key" -w "your_key_here"
+   ```
+
+2. Whenever you decrypt, run the script through this one-liner (no rc-file edits needed):
+
+   ```bash
+   COMFYUI_ENCRYPTION_KEY="$(security find-generic-password -a ComfyUI -s ComfyUI_Encryption_Key -w)" ./decrypt_folder_mac.sh
+   ```
+
+   *(Replace `./decrypt_folder_mac.sh` with whichever decrypt script you're running.)*
+
+3. To remove the key later: `security delete-generic-password -a "ComfyUI" -s "ComfyUI_Encryption_Key"`
+
+> You can also browse the entry in **Keychain Access.app → login → Passwords → ComfyUI_Encryption_Key**. Double-click and check **Show password** to read it manually.
+
+**Approach B — Shell rc file (simple, plaintext on disk).** Easier but the key sits in `~/.zshrc` (or `~/.bash_profile`) in plaintext at mode `0644`. Fine for a single-user laptop you trust; not appropriate on a shared Mac.
+
+```bash
+echo 'export COMFYUI_ENCRYPTION_KEY="your_key_here"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+#### Windows
+
+**Approach A — Credential Manager via PowerShell (recommended).** Stores the key encrypted under your Windows account, never written to a dotfile in plaintext.
+
+1. **One-time setup** — install the `CredentialManager` PowerShell module (it's not built in):
+
+   ```powershell
+   Install-Module -Name CredentialManager -Scope CurrentUser
+   ```
+
+2. **Save the key** (one-time, in PowerShell):
+
+   ```powershell
+   New-StoredCredential -Target "ComfyUI_Encryption_Key" `
+       -UserName "ComfyUI" `
+       -Password "your_key_here" `
+       -Persist LocalMachine
+   ```
+
+3. **Whenever you decrypt**, fetch from Credential Manager and inject:
+
+   ```powershell
+   $env:COMFYUI_ENCRYPTION_KEY = (Get-StoredCredential -Target ComfyUI_Encryption_Key).GetNetworkCredential().Password
+   python decrypt_folder.py
+   ```
+
+4. **Remove later:**
+
+   ```powershell
+   Remove-StoredCredential -Target "ComfyUI_Encryption_Key"
+   ```
+
+**Approach B — User Environment Variable (simple).** Easier and built into Windows. The key is stored in the user-scoped registry (not visible to other Windows users) but is plaintext when read by any process running as you.
+
 1. Press `Win + R`, run `sysdm.cpl`, open **Advanced**, click **Environment Variables**.
-2. Under **User variables**, click **New**. Name: `COMFYUI_ENCRYPTION_KEY`. Value: your key.
+2. Under **User variables**, click **New**:
+   - **Name:** `COMFYUI_ENCRYPTION_KEY`
+   - **Value:** your key
+3. Click OK through both dialogs. **Restart any open terminals** to pick up the new env var.
 
-**Linux:**
+#### Linux
+
+**Approach A — `gnome-keyring` / `secret-tool` (recommended on GNOME desktops).**
+
+1. Save the key (one-time setup):
+
+   ```bash
+   echo -n "your_key_here" | secret-tool store --label="ComfyUI Encryption Key" service ComfyUI key encryption
+   ```
+
+2. Inject at decrypt time:
+
+   ```bash
+   COMFYUI_ENCRYPTION_KEY="$(secret-tool lookup service ComfyUI key encryption)" ./decrypt_folder_linux.sh
+   ```
+
+3. Remove later: `secret-tool clear service ComfyUI key encryption`
+
+**Approach B — Shell rc file (simple, plaintext on disk).**
+
 ```bash
 echo 'export COMFYUI_ENCRYPTION_KEY="your_key_here"' >> ~/.bashrc
 source ~/.bashrc
