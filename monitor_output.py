@@ -9,15 +9,12 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from .dropbox_upload import upload_to_dropbox
 from .encrypt_file import ENCRYPT_EXTENSIONS
+from .safe_paths import is_safe_event_path
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('dropsend.log'),
-        logging.StreamHandler()
-    ]
-)
+# Logging is configured by the package __init__ — see __init__.py for
+# the FileHandler attached to the root logger. logging.getLogger here
+# returns a child logger that propagates to root and inherits its
+# handlers (file + ComfyUI's own stdout).
 logger = logging.getLogger(__name__)
 
 watcher_observer = None
@@ -66,6 +63,14 @@ class NewFileHandler(FileSystemEventHandler):
         if event.is_directory:
             return
         file_path = event.src_path
+        # Defense-in-depth: refuse symlinks or paths whose realpath escapes
+        # the allowed output roots. The watch_folder input is already
+        # clamped, but Watchdog follows symlinks placed inside the watched
+        # tree, so without this check a `output/leak.png -> ~/.ssh/id_rsa`
+        # would still get uploaded.
+        if not is_safe_event_path(file_path):
+            logger.warning(f"Skipping unsafe path (symlink or outside output root): {file_path}")
+            return
         if encryption_enabled and not file_path.lower().endswith('.enc'):
             logger.info(f"Skipping non-.enc file (encryption enabled): {file_path}")
             return
@@ -94,7 +99,7 @@ class NewFileHandler(FileSystemEventHandler):
 
         threading.Thread(target=process_queue, daemon=True).start()
 
-def start_monitoring(watch_folder, dropbox_dest_folder, enable_encryption=False, delete_enc=False, subfolder_monitor=True):
+def start_monitoring(watch_folder, dropbox_dest_folder, enable_encryption=False, delete_enc=False, subfolder_monitor=True, encrypt_handler=None):
     global watcher_observer, watcher_handler, encryption_enabled, _stop_queue_processor
     encryption_enabled = enable_encryption
     _stop_queue_processor = False  # Reset stop signal when starting
@@ -107,9 +112,18 @@ def start_monitoring(watch_folder, dropbox_dest_folder, enable_encryption=False,
     watcher_handler = NewFileHandler(dropbox_dest_folder, delete_enc)
     watcher_observer = Observer()
     watcher_observer.schedule(watcher_handler, watch_folder, recursive=subfolder_monitor)
+    # macOS's _fsevents C extension maintains a global registry of watched
+    # paths and refuses a second watch on the same path with a
+    # "Cannot add watch ... it is already scheduled" RuntimeError that
+    # crashes the second Observer's emitter thread silently. So when
+    # encryption is enabled, register the encrypt handler on the SAME
+    # Observer (watchdog supports multiple handlers per observer and
+    # dispatches every event to every handler).
+    if encrypt_handler is not None:
+        watcher_observer.schedule(encrypt_handler, watch_folder, recursive=subfolder_monitor)
     watcher_observer.start()
 
-    logger.info(f"Now watching: {watch_folder} (Subfolder_Monitor: {'Yes' if subfolder_monitor else 'No'})")
+    logger.info(f"📦👀 Watching: {watch_folder} (Subfolder_Monitor: {'Yes' if subfolder_monitor else 'No'})")
     logger.info(f"Upload target: {dropbox_dest_folder}")
     logger.info(f"Encryption enabled: {'Yes' if encryption_enabled else 'No'}")
 

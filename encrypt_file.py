@@ -7,15 +7,9 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from cryptography.fernet import Fernet
 import threading
+from .safe_paths import is_safe_event_path
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('dropsend.log'),
-        logging.StreamHandler()
-    ]
-)
+# Logging configured by the package __init__ — see __init__.py.
 logger = logging.getLogger(__name__)
 
 ENCRYPT_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.webp', '.gif', '.mp4', '.avi', '.mov')
@@ -62,11 +56,25 @@ class FileEncryptHandler(FileSystemEventHandler):
         self.start_queue_processor()
 
     def on_created(self, event):
-        if not event.is_directory and event.src_path.lower().endswith(ENCRYPT_EXTENSIONS):
+        if event.is_directory:
+            return
+        # Defense-in-depth: refuse symlinks or paths whose realpath escapes
+        # the allowed output roots, so a symlink in the watched directory
+        # cannot trick the encryptor into reading and uploading a file
+        # outside the tree.
+        if not is_safe_event_path(event.src_path):
+            logger.warning(f"Skipping unsafe path (symlink or outside output root): {event.src_path}")
+            return
+        if event.src_path.lower().endswith(ENCRYPT_EXTENSIONS):
             logger.info(f"Detected new file to encrypt: {event.src_path}")
             self.file_queue.put(event.src_path)
 
     def start_queue_processor(self):
+        global _stop_queue_processor
+        # Reset the stop flag so that a new handler created after a prior
+        # stop_queue_processor() call still has a working queue worker.
+        # Mirrors what start_monitoring() does on the upload side.
+        _stop_queue_processor = False
         def process_queue():
             while not _stop_queue_processor:
                 if not self.file_queue.empty():
@@ -94,7 +102,7 @@ class FileEncryptHandler(FileSystemEventHandler):
                         enc_path = file_path + '.enc'
                         with open(enc_path, 'wb') as f:
                             f.write(encrypted_data)
-                        logger.info(f"Created encrypted file: {enc_path}")
+                        logger.info(f"📦🔐 Encrypted: {enc_path}")
 
                         # Defer deletion until after upload verification (handled in monitor_output.py)
                     except Exception as e:

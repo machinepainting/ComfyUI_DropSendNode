@@ -17,6 +17,9 @@ env/
 .env
 .env.*
 
+# Dropbox auth manager credential cache (refresh token + app secret)
+.dropbox_credentials.json
+
 # MacOS system files
 .DS_Store
 
@@ -36,3 +39,39 @@ logs/
 
 # old backed up project archived files to ignore
 _old/
+
+# Editor/IDE backups (may capture secrets from edited files like .env)
+*.bak
+*.backup
+*~
+*.swp
+*.swo
+.idea/
+
+# Encrypted artifacts from local test runs
+*.enc
+
+# Stray credential material
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Claude Code session data
+.claude/
+
+# Python test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Python build artifacts
+*.egg-info/
+build/
+dist/
+pip-log.txt
+pip-wheel-metadata/
+
+# Windows OS files
+Thumbs.db
+Desktop.ini

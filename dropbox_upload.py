@@ -6,14 +6,7 @@ import requests
 from dropbox.exceptions import ApiError
 import logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('dropsend.log'),
-        logging.StreamHandler()
-    ]
-)
+# Logging configured by the package __init__ — see __init__.py.
 logger = logging.getLogger(__name__)
 
 def get_token():
@@ -81,7 +74,7 @@ def upload_to_dropbox(local_file_path, dropbox_folder="/ComfyUI_Output_Files"):
         if local_hash != remote_hash:
             raise Exception(f"Upload integrity check failed for {dropbox_path}")
 
-        logger.info(f"📦✅ Upload Verified: {dropbox_path}")
+        logger.info(f"📦📤 Sent: {dropbox_path}")
         return True  # Indicate successful upload and verification
     except Exception as e:
         logger.error(f"Upload failed: {str(e)}")
