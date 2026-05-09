@@ -53,7 +53,22 @@ Runs every workflow. Watches your ComfyUI output folder, optionally encrypts eac
 
 ---
 
-## Installation (both cloud and local)
+## Pick your path
+
+The two flows below are fully self-contained. Pick the one that matches where you run ComfyUI and follow it from start to finish:
+
+- **[Cloud Setup (RunPod and similar hosted ComfyUI)](#cloud-setup-runpod-and-similar)** — credentials never touch the pod's filesystem
+- **[Local Setup (ComfyUI on your own machine)](#local-setup-comfyui-on-your-own-machine)** — credentials written to a `.env` file *(local only)* at mode `0600`
+
+---
+
+## Cloud Setup (RunPod and similar)
+
+> **For hosted ComfyUI installs.** Credentials are delivered to your browser only and never written to the pod's filesystem.
+
+### Step 1 (Cloud): Install the plugin
+
+In a pod shell:
 
 ```bash
 cd ComfyUI/custom_nodes/
@@ -61,39 +76,9 @@ git clone https://github.com/machinepainting/ComfyUI_DropSendNode.git
 pip install -r ComfyUI_DropSendNode/requirements.txt
 ```
 
-Restart ComfyUI after installation. **Do not run the Setup Node yet** — the gate has to be set first (next step in your chosen path below).
+Don't restart ComfyUI yet — you'll restart the pod after the next step.
 
----
-
-## Create a Dropbox App (both cloud and local)
-
-1. Log in to [Dropbox](https://www.dropbox.com/)
-2. Open [Dropbox Developers](https://www.dropbox.com/developers/) and click **Create Apps**
-3. Choose **Scoped Access** then **App Folder** (recommended)
-4. Name your app and click **Create app**
-5. On the **Permissions** tab, enable:
-   - `account_info.write`, `account_info.read`
-   - `files.metadata.write`, `files.metadata.read`
-   - `files.content.write`, `files.content.read`
-6. Click **Submit** to save permissions
-7. On the **Settings** tab, copy your **App Key** and **App Secret**
-
-> If "App Folder" is not selectable, create an `/Apps/` folder in your Dropbox root first.
-
----
-
-## Pick your path
-
-- **[Cloud Setup (RunPod and similar hosted ComfyUI)](#cloud-setup-runpod-and-similar)** — credentials never touch the pod's filesystem
-- **[Local Setup (ComfyUI on your own machine)](#local-setup-comfyui-on-your-own-machine)** — credentials written to a `.env` file at mode `0600`
-
----
-
-## Cloud Setup (RunPod and similar)
-
-> **For hosted ComfyUI installs.** Credentials are delivered to your browser only and never written to the pod's filesystem. If you're running ComfyUI on your own machine, use the [Local Setup](#local-setup-comfyui-on-your-own-machine) below instead.
-
-### Step 1 (Cloud): Set the gate — do this BEFORE running the Setup Node
+### Step 2 (Cloud): Set the allow-setup gate
 
 The Setup Node refuses to run without `COMFYUI_DROPSEND_ALLOW_SETUP=1` in the pod environment. This blocks remote workflows from hijacking or wiping your credentials.
 
@@ -104,17 +89,38 @@ In your RunPod template, open the **Environment Variables** section and add:
 | **Name** | `COMFYUI_DROPSEND_ALLOW_SETUP` |
 | **Value** | `1` |
 
-Save the template, then **restart the pod or deploy a new one** from the updated template (RunPod picks up env-var changes only on pod start, not while a pod is already running). Once the pod is up, open a pod shell and verify:
+Save the template, then **restart the pod or deploy a new one** from the updated template. RunPod picks up env-var changes only on pod start, not while a pod is already running. Once the pod is up, open a pod shell and verify:
 
 ```bash
 echo $COMFYUI_DROPSEND_ALLOW_SETUP    # should print: 1
 ```
 
-If `echo` prints nothing, the variable did not propagate — fix this before continuing or the next step will fail with a "Setup is disabled" error.
+If it prints nothing, the variable did not propagate. Fix this before continuing or the Setup Node will fail with a "Setup is disabled" error.
 
-### Step 2 (Cloud): Run the Setup Node (display_only mode)
+### Step 3 (Cloud): Open the Setup Node in ComfyUI
 
-Add the **DropSend Setup Node** to a workflow and configure:
+In your browser, open the ComfyUI UI on the pod. Add the **DropSend Setup Node** to a workflow. Don't run it yet — there's a Dropbox app to create first.
+
+### Step 4 (Cloud): Create your Dropbox app
+
+In a separate browser tab:
+
+1. Log in to [Dropbox](https://www.dropbox.com/)
+2. Open [Dropbox Developers](https://www.dropbox.com/developers/) and click **Create Apps**
+3. Choose **Scoped Access** then **App Folder** (recommended)
+4. Name your app and click **Create app**
+5. On the **Permissions** tab, enable:
+   - `account_info.write`, `account_info.read`
+   - `files.metadata.write`, `files.metadata.read`
+   - `files.content.write`, `files.content.read`
+6. Click **Submit** to save permissions
+7. On the **Settings** tab, copy your **App Key** and **App Secret** (you'll paste them in Step 6)
+
+> If "App Folder" is not selectable, create an `/Apps/` folder in your Dropbox root first.
+
+### Step 5 (Cloud): Configure the Setup Node
+
+Back in ComfyUI, on the Setup Node:
 
 | Field | Value |
 |---|---|
@@ -122,23 +128,37 @@ Add the **DropSend Setup Node** to a workflow and configure:
 | `encryption_key_method` | `Display Only` *(or `off` if you don't want encryption)* |
 | `reconnect` | leave off |
 
+### Step 6 (Cloud): Enter your App Key and App Secret
+
 Click **Set credentials…** on the node. A modal opens with three password fields:
 
 | Field | What to paste |
 |---|---|
-| App Key | Your Dropbox App Key |
-| App Secret | Your Dropbox App Secret |
+| App Key | Your Dropbox App Key (from Step 4) |
+| App Secret | Your Dropbox App Secret (from Step 4) |
 | Auth Code | **Leave blank for now** |
 
-Click **Save** in the modal. Then click **Queue** in ComfyUI. The node prints an OAuth URL three ways, use whichever works:
+Click **Save**. The modal closes.
 
-- A browser popup opens automatically (preferred)
+### Step 7 (Cloud): Authorize at Dropbox and exchange the auth code
+
+Click **Run** (Queue) in ComfyUI. The node prints an OAuth URL — delivered three ways, use whichever works:
+
+- A Dropbox authorization popup window opens automatically (preferred)
 - The pod's ComfyUI terminal prints a `DROPSEND DROPBOX AUTHORIZATION REQUIRED` banner with the URL (Cmd / Ctrl click to open)
 - Wire a `Show Text` node to the Setup Node's `STRING` output
 
-**Authorize at Dropbox.** Open the URL → Allow → copy the authorization code Dropbox shows you.
+In the Dropbox window: click **Continue**, then click **Allow**. Dropbox displays an authorization code on screen — **copy it**.
 
-**A second modal auto-opens** in your ComfyUI tab. Paste your **App Key**, **App Secret**, and the new **Auth Code** all three. Click **Save**, then click **Queue** again.
+**A second modal auto-opens** in your ComfyUI tab. Paste:
+
+| Field | What to paste |
+|---|---|
+| App Key | Your Dropbox App Key (paste again) |
+| App Secret | Your Dropbox App Secret (paste again) |
+| Auth Code | The new code from Dropbox |
+
+Click **Save**. Click **Run** again.
 
 A **DropSend Credentials** panel appears in your browser with four values:
 
@@ -149,9 +169,11 @@ A **DropSend Credentials** panel appears in your browser with four values:
 | `DROPBOX_REFRESH_TOKEN` | Long-lived token, just generated |
 | `COMFYUI_ENCRYPTION_KEY` | Only if you chose to generate one |
 
-Each value has a **Copy** button. There's also **Copy all as NAME=value**. **The panel is browser-only — closing it discards the data, and nothing was written to the pod.** If you close it before copying, just rerun the Setup Node to regenerate.
+Each value has a **Copy** button. There's also a **Copy all as NAME=value** button. **The panel is browser-only — closing it discards the data, and nothing was written to the pod.** If you close it before copying, just rerun the Setup Node to regenerate.
 
-### Step 3 (Cloud): Save the credentials to RunPod Secrets
+> Close the Dropbox authorization browser tab after you've copied the auth code. Single-use anyway, but keeping it closed is good hygiene.
+
+### Step 8 (Cloud): Save credentials to RunPod Secrets
 
 In RunPod, click **Secrets** in the sidebar and create:
 
@@ -162,7 +184,9 @@ In RunPod, click **Secrets** in the sidebar and create:
 | `DROPBOX_REFRESH_TOKEN` | from the panel |
 | `COMFYUI_ENCRYPTION_KEY` | from the panel *(only if using encryption)* |
 
-### Step 4 (Cloud): Add the secrets to your pod template
+### Step 9 (Cloud): Add the secrets to your pod template
+
+A **template** lets you reuse this configuration across new pods without redoing setup. Highly recommended — set it up once, deploy fresh pods anytime.
 
 In **My Templates**, edit your template, and under **Environment Variables** add four more entries (one per row):
 
@@ -188,21 +212,35 @@ In **My Templates**, edit your template, and under **Environment Variables** add
 | **Name** | `COMFYUI_ENCRYPTION_KEY` |
 | **Value** | `{{ RUNPOD_SECRET_COMFYUI_ENCRYPTION_KEY }}` |
 
-> **You can now remove `COMFYUI_DROPSEND_ALLOW_SETUP=1` from the template** unless you plan to re-run the Setup Node from this pod. The AutoUploader doesn't need it.
+> **You can now remove `COMFYUI_DROPSEND_ALLOW_SETUP=1` from the template** if you don't plan to re-run the Setup Node from this pod. The AutoUploader doesn't need it. (See [Best practices](#best-practices) below for when to leave it on vs. remove it.)
 
-Save the template. **Deploy a fresh pod from the updated template** so the new env vars take effect.
+Save the template.
 
-### Step 5 (Cloud): Use the AutoUploader
+### Step 10 (Cloud): Restart the pod and switch to the AutoUploader
 
-Skip down to [Use the AutoUploader](#use-the-autouploader-both-cloud-and-local) below — that section is shared between cloud and local.
+**Restart the pod or deploy a fresh one** from the updated template so the new env vars take effect. Then in ComfyUI:
+
+1. **Delete the DropSend Setup Node** from your workflow — its job is done.
+2. **Add the DropSend AutoUploader Node** to your workflow.
+3. Continue at [Use the AutoUploader](#use-the-autouploader-both-cloud-and-local) below.
 
 ---
 
 ## Local Setup (ComfyUI on your own machine)
 
-> **For ComfyUI running on your own machine.** Credentials are stored in a `.env` file *(local installs only)* at mode `0600` in the plugin directory. If you're running ComfyUI on a hosted pod, use [Cloud Setup](#cloud-setup-runpod-and-similar) instead — `.env` is never appropriate on a multi-tenant or shared host.
+> **For ComfyUI running on your own machine.** Credentials are stored in a `.env` file *(local installs only)* at mode `0600` in the plugin directory.
 
-### Step 1 (Local): Set the gate — do this BEFORE running the Setup Node
+### Step 1 (Local): Install the plugin
+
+In a terminal:
+
+```bash
+cd ComfyUI/custom_nodes/
+git clone https://github.com/machinepainting/ComfyUI_DropSendNode.git
+pip install -r ComfyUI_DropSendNode/requirements.txt
+```
+
+### Step 2 (Local): Set the allow-setup gate
 
 The Setup Node refuses to run without `COMFYUI_DROPSEND_ALLOW_SETUP=1` in the shell environment. This blocks remote workflows from hijacking or wiping your credentials.
 
@@ -234,11 +272,30 @@ echo $env:COMFYUI_DROPSEND_ALLOW_SETUP
 
 Each command should print `1`. **Now launch ComfyUI from that same terminal** — env vars don't carry across separate terminals.
 
-### Step 2 (Local): Run the Setup Node (env_file mode)
+### Step 3 (Local): Open the Setup Node in ComfyUI
 
-> **`.env` is for local installs only.** This mode writes your Dropbox refresh token (and optionally your encryption key) to `.env` (mode `0600`) in the plugin directory. Don't use `env_file` on a hosted pod — the file persists on the pod's filesystem and is readable by any process running as the same user.
+In your browser, open ComfyUI. Add the **DropSend Setup Node** to a workflow. Don't run it yet — there's a Dropbox app to create first.
 
-Add the **DropSend Setup Node** to a workflow and configure:
+### Step 4 (Local): Create your Dropbox app
+
+In a separate browser tab:
+
+1. Log in to [Dropbox](https://www.dropbox.com/)
+2. Open [Dropbox Developers](https://www.dropbox.com/developers/) and click **Create Apps**
+3. Choose **Scoped Access** then **App Folder** (recommended)
+4. Name your app and click **Create app**
+5. On the **Permissions** tab, enable:
+   - `account_info.write`, `account_info.read`
+   - `files.metadata.write`, `files.metadata.read`
+   - `files.content.write`, `files.content.read`
+6. Click **Submit** to save permissions
+7. On the **Settings** tab, copy your **App Key** and **App Secret** (you'll paste them in Step 6)
+
+> If "App Folder" is not selectable, create an `/Apps/` folder in your Dropbox root first.
+
+### Step 5 (Local): Configure the Setup Node
+
+Back in ComfyUI, on the Setup Node:
 
 | Field | Value |
 |---|---|
@@ -246,21 +303,53 @@ Add the **DropSend Setup Node** to a workflow and configure:
 | `encryption_key_method` | `save to .env` *(local installs only)* — or `off` if you don't want encryption |
 | `reconnect` | leave off |
 
-Click **Set credentials…** on the node. In the modal:
+### Step 6 (Local): Enter your App Key and App Secret
+
+Click **Set credentials…** on the node. A modal opens with three password fields:
 
 | Field | What to paste |
 |---|---|
-| App Key | Your Dropbox App Key |
-| App Secret | Your Dropbox App Secret |
+| App Key | Your Dropbox App Key (from Step 4) |
+| App Secret | Your Dropbox App Secret (from Step 4) |
 | Auth Code | **Leave blank for now** |
 
-Click **Save**. Then click **Queue**. The node prints an OAuth URL — open it, authorize at Dropbox, copy the auth code.
+Click **Save**. The modal closes.
 
-**A second modal auto-opens.** Paste **App Key**, **App Secret**, and **Auth Code** all three. Click **Save**, then **Queue** again.
+### Step 7 (Local): Authorize at Dropbox and exchange the auth code
 
-Credentials are written to `.env` *(local only)* in the plugin directory and loaded into the running ComfyUI process. **No ComfyUI restart needed** — the AutoUploader will read them on its next run.
+Click **Run** (Queue) in ComfyUI. The node prints an OAuth URL — delivered three ways, use whichever works:
 
-> **You can now `unset COMFYUI_DROPSEND_ALLOW_SETUP`** *(or close the terminal)* — the AutoUploader doesn't need it. You'll only need to set it again if you re-run the Setup Node to rotate credentials.
+- A Dropbox authorization popup window opens automatically (preferred)
+- The ComfyUI terminal prints a `DROPSEND DROPBOX AUTHORIZATION REQUIRED` banner with the URL (Cmd / Ctrl click to open)
+- Wire a `Show Text` node to the Setup Node's `STRING` output
+
+In the Dropbox window: click **Continue**, then click **Allow**. Dropbox displays an authorization code on screen — **copy it**.
+
+**A second modal auto-opens** in your ComfyUI tab. Paste:
+
+| Field | What to paste |
+|---|---|
+| App Key | Your Dropbox App Key (paste again) |
+| App Secret | Your Dropbox App Secret (paste again) |
+| Auth Code | The new code from Dropbox |
+
+Click **Save**. Click **Run** again.
+
+Credentials are written to `.env` *(local installs only)* in the plugin directory at mode `0600`, and loaded into the running ComfyUI process. **No ComfyUI restart needed** — the AutoUploader will read them on its next run.
+
+> Close the Dropbox authorization browser tab after you've copied the auth code. Single-use anyway, but keeping it closed is good hygiene.
+
+### Step 8 (Local): Restart ComfyUI (recommended) and switch to the AutoUploader
+
+Credentials are already loaded in the current ComfyUI process, so you *can* keep going without restarting. But restarting once now confirms the `.env` is readable cleanly on launch and avoids surprises later.
+
+> **You can now `unset COMFYUI_DROPSEND_ALLOW_SETUP`** *(or close the terminal you used for setup)* — the AutoUploader doesn't need it. Set it again only when you want to re-run the Setup Node to rotate credentials.
+
+In ComfyUI:
+
+1. **Delete the DropSend Setup Node** from your workflow — its job is done.
+2. **Add the DropSend AutoUploader Node** to your workflow.
+3. Continue at [Use the AutoUploader](#use-the-autouploader-both-cloud-and-local) below.
 
 ---
 
@@ -272,7 +361,7 @@ Credentials are written to `.env` *(local only)* in the plugin directory and loa
 | Field | What it does |
 |---|---|
 | `watch_folder` | Folder to monitor for new files (defaults to ComfyUI output; see clamp note in Security section) |
-| `dropbox_dest_folder` | Destination folder in Dropbox (must start with `/`, see Dropbox app's App Folder root) |
+| `dropbox_dest_folder` | Destination folder in Dropbox (must start with `/`) |
 | `folder_format` | `project_name` (use the literal folder name) or one of the date formats (appends today's date) |
 | `enable_encryption` | If true, encrypts each file with AES (Fernet) before uploading |
 | `Post_Delete_Enc` | After successful upload, delete the local `.enc` file |
@@ -280,6 +369,21 @@ Credentials are written to `.env` *(local only)* in the plugin directory and loa
 | `run_process` | Set to `True` to start uploading |
 
 3. Run a workflow that generates an image. The AutoUploader picks it up, optionally encrypts it, uploads it to Dropbox, and prints status to the ComfyUI console (look for `📦👀 Watching:`, `📦🔐 Encrypted:`, `📦📤 Sent:`).
+
+---
+
+## Best practices
+
+Operational hygiene that keeps the system safe over time:
+
+- **Never share or paste your `App Secret`, `DROPBOX_REFRESH_TOKEN`, or `COMFYUI_ENCRYPTION_KEY` outside your password manager / secrets vault.** Don't paste them into chat, screenshots, git commits, plain text files, or AI-coding sessions. The `App Key` is semi-public (visible in OAuth URLs by Dropbox design); the others are confidential.
+- **Close the Dropbox authorization browser window** after you've copied the auth code. Auth codes expire in ~10 minutes and are single-use, but closing the window prevents accidental re-clicks.
+- **Treat the credentials browser panel as one-shot.** Copy the four values into RunPod Secrets / your password manager *(cloud)* or confirm `.env` was written *(local)*, then close the panel. It is browser-only and never re-fetches.
+- **Don't store credentials anywhere other than your platform's secrets store.** No notes apps, no Google Docs, no Slack messages, no `.txt` files on your Desktop.
+- **Back up your `COMFYUI_ENCRYPTION_KEY`** before rotating it. Without it, all `.enc` files encrypted under it become permanently unreadable. See [Encryption key rotation](#encryption-key-rotation) for the safe rotation flow.
+- **Keep `COMFYUI_DROPSEND_ALLOW_SETUP` off** between setup runs unless your pod is single-user. On a single-tenant pod or your local machine, leaving it on is fine. On a multi-tenant or publicly-exposed pod, remove it after setup so a hostile workflow submission cannot wipe your stored credentials.
+- **Verify each new pod has its env vars** before the AutoUploader runs. From a pod shell, `echo $DROPBOX_REFRESH_TOKEN | head -c 8 ; echo` should print the first few characters of your refresh token. If it prints nothing, the secrets aren't propagating yet — check your template.
+- **Decrypt only on your local machine**, never on the cloud pod. See [Decryption (Local Use Only)](#decryption-local-use-only) below.
 
 ---
 
