@@ -46,14 +46,14 @@ Encryption is optional. Leave `enable_encryption` off and files upload as-is.
 ## Two Nodes
 
 ### DropSend Setup Node
-Runs once. Exchanges your Dropbox app credentials for a refresh token, then either writes them to `.env` (local installs) or shows them in a one-shot browser panel (cloud installs) so you can copy them into your platform's secrets manager.
+Runs once. Takes your Dropbox app credentials (entered through a browser-only password modal), exchanges them for a refresh token, then either writes the token to `.env` *(for local installs only)* or shows it in a one-shot browser panel so you can copy it into your platform's secrets manager *(cloud installs)*.
 
 ### DropSend AutoUploader Node
 Runs every workflow. Watches your ComfyUI output folder, optionally encrypts each new file, and uploads it to Dropbox. Supports `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.mp4`, `.avi`, `.mov`. Includes SHA256 verification, queue-based retries, and optional subfolder monitoring.
 
 ---
 
-## Installation
+## Installation (both cloud and local)
 
 ```bash
 cd ComfyUI/custom_nodes/
@@ -61,11 +61,11 @@ git clone https://github.com/machinepainting/ComfyUI_DropSendNode.git
 pip install -r ComfyUI_DropSendNode/requirements.txt
 ```
 
-Restart ComfyUI after installation.
+Restart ComfyUI after installation. **Do not run the Setup Node yet** — the gate has to be set first (next step in your chosen path below).
 
 ---
 
-## Step 1: Create a Dropbox App
+## Create a Dropbox App (both cloud and local)
 
 1. Log in to [Dropbox](https://www.dropbox.com/)
 2. Open [Dropbox Developers](https://www.dropbox.com/developers/) and click **Create Apps**
@@ -82,53 +82,65 @@ Restart ComfyUI after installation.
 
 ---
 
-## Step 2: Run the Setup Node
+## Pick your path
 
-The Setup Node is gated behind an environment variable. This prevents a remote workflow from hijacking or wiping your credentials. Pick the section that matches where you run ComfyUI.
+- **[Cloud Setup (RunPod and similar hosted ComfyUI)](#cloud-setup-runpod-and-similar)** — credentials never touch the pod's filesystem
+- **[Local Setup (ComfyUI on your own machine)](#local-setup-comfyui-on-your-own-machine)** — credentials written to a `.env` file at mode `0600`
 
-### A) Cloud (RunPod and similar)
+---
 
-**1. Set the gate.** Add this to your RunPod template's **Environment Variables**:
+## Cloud Setup (RunPod and similar)
 
-```
-COMFYUI_DROPSEND_ALLOW_SETUP=1
-```
+> **For hosted ComfyUI installs.** Credentials are delivered to your browser only and never written to the pod's filesystem. If you're running ComfyUI on your own machine, use the [Local Setup](#local-setup-comfyui-on-your-own-machine) below instead.
 
-Start (or restart) the pod. To verify, open a pod shell and run:
+### Step 1 (Cloud): Set the gate — do this BEFORE running the Setup Node
+
+The Setup Node refuses to run without `COMFYUI_DROPSEND_ALLOW_SETUP=1` in the pod environment. This blocks remote workflows from hijacking or wiping your credentials.
+
+In your RunPod template, open the **Environment Variables** section and add:
+
+| Field | Value |
+|---|---|
+| **Name** | `COMFYUI_DROPSEND_ALLOW_SETUP` |
+| **Value** | `1` |
+
+Save the template, then **restart the pod or deploy a new one** from the updated template (RunPod picks up env-var changes only on pod start, not while a pod is already running). Once the pod is up, open a pod shell and verify:
 
 ```bash
 echo $COMFYUI_DROPSEND_ALLOW_SETUP    # should print: 1
 ```
 
-**2. Add the Setup Node to your workflow.** Configure:
+If `echo` prints nothing, the variable did not propagate — fix this before continuing or the next step will fail with a "Setup is disabled" error.
+
+### Step 2 (Cloud): Run the Setup Node (display_only mode)
+
+Add the **DropSend Setup Node** to a workflow and configure:
 
 | Field | Value |
 |---|---|
-| `storage_method` | `display_only` (values shown in browser, never saved on the pod) |
-| `encryption_key_method` | `Display Only` (or `off` if you do not want encryption) |
+| `storage_method` | `display_only` *(values shown in browser, never written to the pod)* |
+| `encryption_key_method` | `Display Only` *(or `off` if you don't want encryption)* |
 | `reconnect` | leave off |
 
-**3. Click "Set credentials..."** on the node. A modal opens with three password fields:
+Click **Set credentials…** on the node. A modal opens with three password fields:
 
 | Field | What to paste |
 |---|---|
-| App Key | Your Dropbox App Key (from Step 1) |
-| App Secret | Your Dropbox App Secret (from Step 1) |
-| Auth Code | Leave blank for now |
+| App Key | Your Dropbox App Key |
+| App Secret | Your Dropbox App Secret |
+| Auth Code | **Leave blank for now** |
 
-Click **Save**. The modal closes.
-
-**4. Click Queue (Run).** The node prints an OAuth URL. The URL is delivered three ways, use whichever works:
+Click **Save** in the modal. Then click **Queue** in ComfyUI. The node prints an OAuth URL three ways, use whichever works:
 
 - A browser popup opens automatically (preferred)
-- The ComfyUI terminal prints a `DROPSEND DROPBOX AUTHORIZATION REQUIRED` banner with the URL (Cmd or Ctrl click to open)
+- The pod's ComfyUI terminal prints a `DROPSEND DROPBOX AUTHORIZATION REQUIRED` banner with the URL (Cmd / Ctrl click to open)
 - Wire a `Show Text` node to the Setup Node's `STRING` output
 
-**5. Authorize at Dropbox.** Open the URL, click Allow, and copy the authorization code Dropbox displays.
+**Authorize at Dropbox.** Open the URL → Allow → copy the authorization code Dropbox shows you.
 
-**6. Paste the auth code.** A second modal auto-opens for this. Paste your App Key, App Secret, and the new Auth Code. Click **Save**.
+**A second modal auto-opens** in your ComfyUI tab. Paste your **App Key**, **App Secret**, and the new **Auth Code** all three. Click **Save**, then click **Queue** again.
 
-**7. Click Queue again.** A **DropSend Credentials** panel appears in your browser with four values:
+A **DropSend Credentials** panel appears in your browser with four values:
 
 | Value | Description |
 |---|---|
@@ -137,39 +149,64 @@ Click **Save**. The modal closes.
 | `DROPBOX_REFRESH_TOKEN` | Long-lived token, just generated |
 | `COMFYUI_ENCRYPTION_KEY` | Only if you chose to generate one |
 
-Each value has a **Copy** button. There is also a **Copy all as NAME=value** button.
+Each value has a **Copy** button. There's also **Copy all as NAME=value**. **The panel is browser-only — closing it discards the data, and nothing was written to the pod.** If you close it before copying, just rerun the Setup Node to regenerate.
 
-The panel is browser-only. Closing it discards the data and nothing is saved on the pod. If you close it before copying, just rerun the Setup Node to regenerate the values.
+### Step 3 (Cloud): Save the credentials to RunPod Secrets
 
-**8. Save the values to RunPod Secrets.** In RunPod, click **Secrets** in the sidebar and create:
+In RunPod, click **Secrets** in the sidebar and create:
 
 | Secret Name (must match exactly) | Value |
 |---|---|
 | `DROPBOX_APP_KEY` | from the panel |
 | `DROPBOX_APP_SECRET` | from the panel |
 | `DROPBOX_REFRESH_TOKEN` | from the panel |
-| `COMFYUI_ENCRYPTION_KEY` | from the panel (only if using encryption) |
+| `COMFYUI_ENCRYPTION_KEY` | from the panel *(only if using encryption)* |
 
-**9. Add the secrets to your pod template.** Click **My Templates**, edit your template, and under **Environment Variables** add:
+### Step 4 (Cloud): Add the secrets to your pod template
 
-| Key | Value |
+In **My Templates**, edit your template, and under **Environment Variables** add four more entries (one per row):
+
+| Field | Value |
 |---|---|
-| `DROPBOX_APP_KEY` | `{{ RUNPOD_SECRET_DROPBOX_APP_KEY }}` |
-| `DROPBOX_APP_SECRET` | `{{ RUNPOD_SECRET_DROPBOX_APP_SECRET }}` |
-| `DROPBOX_REFRESH_TOKEN` | `{{ RUNPOD_SECRET_DROPBOX_REFRESH_TOKEN }}` |
-| `COMFYUI_ENCRYPTION_KEY` | `{{ RUNPOD_SECRET_COMFYUI_ENCRYPTION_KEY }}` (optional) |
+| **Name** | `DROPBOX_APP_KEY` |
+| **Value** | `{{ RUNPOD_SECRET_DROPBOX_APP_KEY }}` |
 
-Save the template. The next time you deploy a pod from this template, ComfyUI will see the credentials automatically.
+| Field | Value |
+|---|---|
+| **Name** | `DROPBOX_APP_SECRET` |
+| **Value** | `{{ RUNPOD_SECRET_DROPBOX_APP_SECRET }}` |
 
-> You can now remove `COMFYUI_DROPSEND_ALLOW_SETUP=1` from the template unless you plan to re-run the Setup Node from this pod.
+| Field | Value |
+|---|---|
+| **Name** | `DROPBOX_REFRESH_TOKEN` |
+| **Value** | `{{ RUNPOD_SECRET_DROPBOX_REFRESH_TOKEN }}` |
 
-**10. Deploy a fresh pod from your template.** Skip to **Step 3**.
+*(Optional — only if using encryption)*
+
+| Field | Value |
+|---|---|
+| **Name** | `COMFYUI_ENCRYPTION_KEY` |
+| **Value** | `{{ RUNPOD_SECRET_COMFYUI_ENCRYPTION_KEY }}` |
+
+> **You can now remove `COMFYUI_DROPSEND_ALLOW_SETUP=1` from the template** unless you plan to re-run the Setup Node from this pod. The AutoUploader doesn't need it.
+
+Save the template. **Deploy a fresh pod from the updated template** so the new env vars take effect.
+
+### Step 5 (Cloud): Use the AutoUploader
+
+Skip down to [Use the AutoUploader](#use-the-autouploader-both-cloud-and-local) below — that section is shared between cloud and local.
 
 ---
 
-### B) Local install
+## Local Setup (ComfyUI on your own machine)
 
-**1. Set the gate in the same shell that will launch ComfyUI:**
+> **For ComfyUI running on your own machine.** Credentials are stored in a `.env` file *(local installs only)* at mode `0600` in the plugin directory. If you're running ComfyUI on a hosted pod, use [Cloud Setup](#cloud-setup-runpod-and-similar) instead — `.env` is never appropriate on a multi-tenant or shared host.
+
+### Step 1 (Local): Set the gate — do this BEFORE running the Setup Node
+
+The Setup Node refuses to run without `COMFYUI_DROPSEND_ALLOW_SETUP=1` in the shell environment. This blocks remote workflows from hijacking or wiping your credentials.
+
+**In the same terminal you'll use to launch ComfyUI**, run:
 
 ```bash
 # macOS / Linux
@@ -195,52 +232,54 @@ echo %COMFYUI_DROPSEND_ALLOW_SETUP%
 echo $env:COMFYUI_DROPSEND_ALLOW_SETUP
 ```
 
-Each command should print `1`. Now launch ComfyUI from that same shell.
+Each command should print `1`. **Now launch ComfyUI from that same terminal** — env vars don't carry across separate terminals.
 
-**2. Add the Setup Node to your workflow.** Configure:
+### Step 2 (Local): Run the Setup Node (env_file mode)
+
+> **`.env` is for local installs only.** This mode writes your Dropbox refresh token (and optionally your encryption key) to `.env` (mode `0600`) in the plugin directory. Don't use `env_file` on a hosted pod — the file persists on the pod's filesystem and is readable by any process running as the same user.
+
+Add the **DropSend Setup Node** to a workflow and configure:
 
 | Field | Value |
 |---|---|
-| `storage_method` | `env_file` (values written to `.env`, mode `0600`, in the plugin directory) |
-| `encryption_key_method` | `save to .env` (or `off`) |
+| `storage_method` | `env_file` *(local installs only — values written to `.env` at mode `0600` in the plugin directory)* |
+| `encryption_key_method` | `save to .env` *(local installs only)* — or `off` if you don't want encryption |
 | `reconnect` | leave off |
 
-**3. Click "Set credentials..."** on the node. In the modal:
+Click **Set credentials…** on the node. In the modal:
 
 | Field | What to paste |
 |---|---|
 | App Key | Your Dropbox App Key |
 | App Secret | Your Dropbox App Secret |
-| Auth Code | Leave blank |
+| Auth Code | **Leave blank for now** |
 
-Click **Save**.
+Click **Save**. Then click **Queue**. The node prints an OAuth URL — open it, authorize at Dropbox, copy the auth code.
 
-**4. Click Queue.** The node prints an OAuth URL. Open it, authorize at Dropbox, and copy the auth code.
+**A second modal auto-opens.** Paste **App Key**, **App Secret**, and **Auth Code** all three. Click **Save**, then **Queue** again.
 
-**5. Paste the auth code.** A second modal auto-opens. Paste App Key, App Secret, and Auth Code. Click **Save**.
+Credentials are written to `.env` *(local only)* in the plugin directory and loaded into the running ComfyUI process. **No ComfyUI restart needed** — the AutoUploader will read them on its next run.
 
-**6. Click Queue again.** Credentials are written to `.env` in the plugin directory and loaded into the running ComfyUI process. No restart needed.
-
-> Once setup is complete, you can drop `COMFYUI_DROPSEND_ALLOW_SETUP` from your environment. The AutoUploader does not need it.
+> **You can now `unset COMFYUI_DROPSEND_ALLOW_SETUP`** *(or close the terminal)* — the AutoUploader doesn't need it. You'll only need to set it again if you re-run the Setup Node to rotate credentials.
 
 ---
 
-## Step 3: Use the AutoUploader
+## Use the AutoUploader (both cloud and local)
 
 1. Add the **DropSend AutoUploader Node** to your workflow.
 2. Configure:
 
 | Field | What it does |
 |---|---|
-| `watch_folder` | Folder to monitor for new files (defaults to ComfyUI output, see clamp note in Security section) |
-| `dropbox_dest_folder` | Destination folder in Dropbox (must start with `/Apps/...`) |
-| `folder_format` | Append today's date to the destination, or use the literal name |
+| `watch_folder` | Folder to monitor for new files (defaults to ComfyUI output; see clamp note in Security section) |
+| `dropbox_dest_folder` | Destination folder in Dropbox (must start with `/`, see Dropbox app's App Folder root) |
+| `folder_format` | `project_name` (use the literal folder name) or one of the date formats (appends today's date) |
 | `enable_encryption` | If true, encrypts each file with AES (Fernet) before uploading |
-| `Post_Delete_Enc` | After upload, delete the local `.enc` file |
+| `Post_Delete_Enc` | After successful upload, delete the local `.enc` file |
 | `Subfolder_Monitor` | Recursively watch subfolders |
 | `run_process` | Set to `True` to start uploading |
 
-3. Run a workflow that generates an image. The AutoUploader picks it up, optionally encrypts it, uploads it to Dropbox, and prints status to the ComfyUI console.
+3. Run a workflow that generates an image. The AutoUploader picks it up, optionally encrypts it, uploads it to Dropbox, and prints status to the ComfyUI console (look for `📦👀 Watching:`, `📦🔐 Encrypted:`, `📦📤 Sent:`).
 
 ---
 
@@ -371,11 +410,26 @@ The Setup Node printed this because your prompt was submitted without a `client_
 
 ### Encryption key rotation
 
-The Fernet key in `COMFYUI_ENCRYPTION_KEY` is symmetric: the same key encrypts and decrypts. Practical implications:
+The Fernet key in `COMFYUI_ENCRYPTION_KEY` is symmetric: the same key encrypts and decrypts. The Dropbox credentials and the encryption key are independent — rotating one does not require rotating the other.
 
-- **Old `.enc` files cannot be decrypted with a new key.** If you rotate the key while previously-encrypted files still live in your Dropbox, those files become permanently unreadable unless you keep the old key on hand (e.g. in a labelled backup). Decide before rotating: re-download and re-encrypt against the new key, accept the loss, or stash the old key in a labelled secrets vault entry (e.g. `COMFYUI_ENCRYPTION_KEY_2025_archive`).
-- **A leaked key compromises everything encrypted under it.** If you suspect the key has been exposed (committed to git, pasted into a chat, etc.), generate a fresh key, re-encrypt files you need going forward, and delete or replace the old `.enc` files in Dropbox. The leaked key remains valid for any copy of the old files an attacker may already have.
-- **Generating a new key.** Re-run the Setup Node with `encryption_key_method = Display Only` (or `save to .env`). Each run generates a fresh `Fernet.generate_key()`. Copy the new value into your secrets store and restart the pod.
+> ⚠️ **Before you swap in a new encryption key — back up the old one first.** If you have `.enc` files anywhere (still in Dropbox, on a synced drive, archived on disk) that were encrypted with the old key, **only the old key can decrypt them**. A new key cannot. Once the old key is overwritten or unset and not saved anywhere, those files become unreadable forever.
+>
+> **Do this before rotating, in this order:**
+>
+> 1. **Find your current `COMFYUI_ENCRYPTION_KEY`.** *(Local installs only — for cloud, the same applies but the value is in your platform's secrets store, e.g. RunPod Secrets.)* Locations to check:
+>    - **Local — env var:** `echo $COMFYUI_ENCRYPTION_KEY` *(macOS / Linux)* or `echo %COMFYUI_ENCRYPTION_KEY%` *(Windows cmd)*
+>    - **Local — `.env`:** `grep COMFYUI_ENCRYPTION_KEY ComfyUI/custom_nodes/ComfyUI_DropSendNode/.env`
+>    - **Cloud — RunPod Secrets:** open the Secrets panel and reveal `COMFYUI_ENCRYPTION_KEY`
+> 2. **Save it somewhere durable** — password manager entry labelled e.g. `COMFYUI_ENCRYPTION_KEY_<date>_archive`, secure note, encrypted vault. Don't paste it into chat / git / a screenshot you'll share.
+> 3. *(Then)* **Swap in the new key** — replace `COMFYUI_ENCRYPTION_KEY` in your env / `.env` *(local only)* / RunPod Secrets with the new value.
+> 4. **Test recovery before deleting anything.** Pick one `.enc` file, set the OLD key in a shell *(see "Recovering files encrypted with an old key" below)*, run the decrypt script — confirm it produces the original file. If decryption works, you have a working backup of the old key and rotation is safe.
+>
+> Once you've confirmed the old key is saved and the recovery path works, you can rotate freely. The new key handles all *future* uploads; the old key stays useful for anything previously encrypted.
+
+Other practical implications:
+
+- **A leaked key compromises everything encrypted under it.** If you suspect the key has been exposed (committed to git, pasted into a chat, screenshot leaked, etc.), generate a fresh key, re-encrypt files you need going forward, and delete or replace the old `.enc` files in Dropbox. The leaked key remains valid for any copy of the old files an attacker may already have.
+- **Generating a new key.** Re-run the Setup Node with `encryption_key_method = Display Only` (cloud) or `save to .env` *(local only)*. Each run generates a fresh `Fernet.generate_key()`. Copy the new value into your secrets store *(cloud)* or `.env` *(local)* and restart ComfyUI / the pod.
 
 #### Recovering files encrypted with an old key
 
